@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { Cargando, Encabezado, Tarjeta } from "@/components/ui";
+import { MapPin } from "lucide-react";
+import { Cargando, Encabezado, EstadoVacio, Tarjeta } from "@/components/ui";
 import { existenciasDeProducto, obtenerProducto } from "@/lib/datos/inventario";
-import { exigirPermiso } from "@/lib/sesion";
+import { exigirPermiso, sedeParaRegistrar } from "@/lib/sesion";
 import { registrarConteo } from "../../../acciones";
 import { FormularioConteo } from "./formulario-conteo";
 
@@ -21,17 +22,25 @@ export default function PaginaConteo({ params }: Props) {
 async function Conteo({ params }: Pick<Props, "params">) {
   await exigirPermiso("administrarOptica");
   const { id } = await params;
-  const [p, existencias] = await Promise.all([obtenerProducto(id), existenciasDeProducto(id)]);
+  const [p, destino] = await Promise.all([obtenerProducto(id), sedeParaRegistrar()]);
+  const encabezado = (descripcion: string) => (
+    <Encabezado titulo={`Inventario físico · ${p.nombre}`} descripcion={descripcion} volver={{ href: `/panel/inventario/productos/${id}`, texto: p.nombre }} />
+  );
+  if (!destino.sede) {
+    return (
+      <>
+        {encabezado("El inventario físico se hace sede por sede.")}
+        <EstadoVacio icono={MapPin} titulo="Elige la sede que vas a contar" descripcion={destino.error} />
+      </>
+    );
+  }
+  const existencias = await existenciasDeProducto(id, destino.sede.id);
   return (
     <>
-      <Encabezado
-        titulo={`Inventario físico · ${p.nombre}`}
-        descripcion="Escribe cuántas lunas hay realmente en cada medida revisada. Cada diferencia queda como ajuste con tu usuario."
-        volver={{ href: `/panel/inventario/productos/${id}`, texto: p.nombre }}
-      />
+      {encabezado(`Sede ${destino.sede.nombre}: escribe cuántas lunas hay realmente en cada medida revisada. Cada diferencia queda como ajuste con tu usuario.`)}
       <Tarjeta>
         <FormularioConteo
-          accion={registrarConteo.bind(null, id)}
+          accion={registrarConteo.bind(null, id, destino.sede.id)}
           filas={existencias.map((e) => ({
             id: e.id,
             esfera: e.esfera,

@@ -1,6 +1,8 @@
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 import { tienePermiso, type Permiso } from "@/lib/permisos";
+import { resolverSede, sedeDeRegistro, TODAS_LAS_SEDES } from "@/lib/sedes";
 import { crearClienteServidor } from "@/lib/supabase/servidor";
 
 /**
@@ -59,4 +61,62 @@ export async function exigirPermiso(permiso: Permiso): Promise<OpticaActual> {
   const optica = await exigirOptica();
   if (!tienePermiso(optica.rol, permiso)) redirect("/panel");
   return optica;
+}
+
+// ------------------------------------------------------------------ sedes
+
+export type Sede = {
+  id: string;
+  nombre: string;
+  activa: boolean;
+  direccion: string | null;
+  telefono: string | null;
+  whatsapp_phone_number_id: string | null;
+};
+
+export { TODAS_LAS_SEDES };
+export const COOKIE_SEDE = "sede";
+
+/** Sedes que el usuario puede ver (RLS: el propietario todas, el resto las asignadas). */
+export const obtenerSedes = cache(async (): Promise<Sede[]> => {
+  const optica = await exigirOptica();
+  const supabase = await crearClienteServidor();
+  const { data, error } = await supabase
+    .from("sedes")
+    .select("id, nombre, activa, direccion, telefono, whatsapp_phone_number_id")
+    .eq("optica_id", optica.id)
+    .order("activa", { ascending: false })
+    .order("nombre");
+  if (error) throw new Error(`No se pudieron leer las sedes: ${error.message}`);
+  return data as Sede[];
+});
+
+export type SedeActual = {
+  optica: OpticaActual;
+  sedes: Sede[];
+  /** Sede elegida en el selector, o null si se ven todas (o el usuario no tiene ninguna). */
+  actual: Sede | null;
+};
+
+/**
+ * Sede elegida en el selector (cookie). La cookie solo es una preferencia: se valida contra
+ * las sedes visibles del usuario y, si no sirve, se usa su primera sede activa.
+ */
+export const obtenerSedeActual = cache(async (): Promise<SedeActual> => {
+  const [optica, sedes, galletas] = await Promise.all([exigirOptica(), obtenerSedes(), cookies()]);
+  return { optica, sedes, actual: resolverSede(sedes, galletas.get(COOKIE_SEDE)?.value) };
+});
+
+/** Id de la sede para filtrar consultas; null = todas las sedes visibles (RLS limita el resto). */
+export async function sedeFiltro(): Promise<string | null> {
+  return (await obtenerSedeActual()).actual?.id ?? null;
+}
+
+/**
+ * Sede donde se registra algo nuevo (pedido, compra, meta…). Con "todas las sedes" elegido solo
+ * sirve si el usuario tiene una única sede activa. La base vuelve a validar el acceso.
+ */
+export async function sedeParaRegistrar(): Promise<{ sede: Sede; error?: undefined } | { sede?: undefined; error: string }> {
+  const { sedes, actual } = await obtenerSedeActual();
+  return sedeDeRegistro(sedes, actual);
 }

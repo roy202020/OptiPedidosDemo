@@ -1,11 +1,13 @@
 import { notFound } from "next/navigation";
 import { z } from "zod";
 import { aCilindroNegativo, type EstadoStock, type TipoMovimiento } from "@/lib/inventario/medidas";
-import { exigirOptica } from "@/lib/sesion";
+import { exigirOptica, sedeFiltro } from "@/lib/sesion";
 import { crearClienteServidor } from "@/lib/supabase/servidor";
 
 /**
  * Lecturas del inventario de lunas. Todas filtran por la óptica actual además de RLS.
+ * El catálogo (productos) es de toda la óptica; el stock (variantes, movimientos) es por sede:
+ * se filtra por la sede elegida en el selector, o por todas las sedes visibles si se eligió "todas".
  * Las existencias se leen de la vista lunas_existencias (disponible y estado calculados).
  */
 
@@ -52,6 +54,10 @@ export type Existencia = {
 };
 
 export const EXISTENCIAS_POR_PAGINA = 50;
+
+/** Limita una consulta a la sede elegida (null = todas las sedes visibles del usuario). */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- el tipo del query builder de PostgREST es muy profundo
+const conSede = <Q extends { [k: string]: any }>(q: Q, sede: string | null): Q => (sede ? q.eq("sede_id", sede) : q);
 const esUuid = (v?: string | null) => Boolean(v && z.uuid().safeParse(v).success);
 const num = (v: unknown) => (v == null ? null : Number(v));
 
@@ -67,13 +73,13 @@ function existencia(r: Record<string, unknown>): Existencia {
 }
 
 export async function listarProductos({ incluirInactivos = true } = {}) {
-  const optica = await exigirOptica();
+  const [optica, sede] = await Promise.all([exigirOptica(), sedeFiltro()]);
   const supabase = await crearClienteServidor();
   let q = supabase.from("lunas_productos").select("*").eq("optica_id", optica.id).order("activo", { ascending: false }).order("nombre");
   if (!incluirInactivos) q = q.eq("activo", true);
   const [productos, existencias] = await Promise.all([
     q,
-    supabase.from("lunas_existencias").select("producto_id, stock, disponible, estado_stock, stock_minimo").eq("optica_id", optica.id).limit(20000),
+    conSede(supabase.from("lunas_existencias").select("producto_id, stock, disponible, estado_stock, stock_minimo").eq("optica_id", optica.id), sede).limit(20000),
   ]);
   const error = productos.error ?? existencias.error;
   if (error) throw new Error(`No se pudo leer el inventario: ${error.message}`);
@@ -104,13 +110,11 @@ export async function obtenerProducto(id: string): Promise<Producto> {
   return { ...(data as Producto), indice: num(data.indice), costo_referencial: num(data.costo_referencial) };
 }
 
-export async function existenciasDeProducto(productoId: string): Promise<Existencia[]> {
-  const optica = await exigirOptica();
+/** Existencias de un producto en la sede indicada (por defecto, la elegida en el selector). */
+export async function existenciasDeProducto(productoId: string, sedeId?: string): Promise<Existencia[]> {
+  const [optica, sede] = await Promise.all([exigirOptica(), sedeId ?? sedeFiltro()]);
   const supabase = await crearClienteServidor();
-  const { data, error } = await supabase
-    .from("lunas_existencias")
-    .select("*")
-    .eq("optica_id", optica.id)
+  const { data, error } = await conSede(supabase.from("lunas_existencias").select("*").eq("optica_id", optica.id), sede)
     .eq("producto_id", productoId)
     .order("esfera", { ascending: false })
     .order("cilindro", { ascending: false })
@@ -130,10 +134,10 @@ export type FiltrosExistencias = {
 };
 
 export async function buscarExistencias(f: FiltrosExistencias) {
-  const optica = await exigirOptica();
+  const [optica, sede] = await Promise.all([exigirOptica(), sedeFiltro()]);
   const supabase = await crearClienteServidor();
   const pagina = Math.max(1, f.pagina ?? 1);
-  let q = supabase.from("lunas_existencias").select("*", { count: "exact" }).eq("optica_id", optica.id).eq("activo", true);
+  let q = conSede(supabase.from("lunas_existencias").select("*", { count: "exact" }).eq("optica_id", optica.id).eq("activo", true), sede);
   if (esUuid(f.producto)) q = q.eq("producto_id", f.producto!);
   if (f.esfera != null) q = q.eq("esfera", f.esfera);
   if (f.cilindro != null) q = q.eq("cilindro", f.cilindro);
@@ -168,10 +172,10 @@ export async function exportarExistencias(f: Omit<FiltrosExistencias, "pagina">)
 
 /** Medidas con mínimo configurado que están bajo el mínimo o agotadas. */
 export async function contarAlertas() {
-  const optica = await exigirOptica();
+  const [optica, sede] = await Promise.all([exigirOptica(), sedeFiltro()]);
   const supabase = await crearClienteServidor();
   const base = () =>
-    supabase.from("lunas_existencias").select("id", { count: "exact", head: true }).eq("optica_id", optica.id).eq("activo", true).gt("stock_minimo", 0);
+    conSede(supabase.from("lunas_existencias").select("id", { count: "exact", head: true }).eq("optica_id", optica.id).eq("activo", true).gt("stock_minimo", 0), sede);
   const [bajo, agotado] = await Promise.all([base().eq("estado_stock", "bajo"), base().eq("estado_stock", "agotado")]);
   return { bajo: bajo.count ?? 0, agotado: agotado.count ?? 0 };
 }
@@ -227,16 +231,19 @@ export async function obtenerVariante(id: string) {
 }
 
 export async function movimientosRecientes(pagina = 1) {
-  const optica = await exigirOptica();
+  const [optica, sede] = await Promise.all([exigirOptica(), sedeFiltro()]);
   const supabase = await crearClienteServidor();
   const porPagina = 50;
-  const { data, error, count } = await supabase
-    .from("inventario_movimientos")
-    .select(
-      "id, tipo, cantidad, stock_resultante, motivo, creado_por, creado_en, variante:lunas_variantes(id, esfera, cilindro, adicion, lado, producto:lunas_productos(nombre)), orden:ordenes(id, numero)",
-      { count: "exact" },
-    )
-    .eq("optica_id", optica.id)
+  const { data, error, count } = await conSede(
+    supabase
+      .from("inventario_movimientos")
+      .select(
+        "id, tipo, cantidad, stock_resultante, motivo, creado_por, creado_en, variante:lunas_variantes(id, esfera, cilindro, adicion, lado, producto:lunas_productos(nombre)), orden:ordenes(id, numero)",
+        { count: "exact" },
+      )
+      .eq("optica_id", optica.id),
+    sede,
+  )
     .order("id", { ascending: false })
     .range((pagina - 1) * porPagina, pagina * porPagina - 1);
   if (error?.code === "PGRST103") return { movimientos: [], total: count ?? 0, porPagina };
@@ -270,9 +277,9 @@ export type OjoOrden = {
 /**
  * Busca la medida EXACTA que necesita un ojo dentro de un producto. Nunca elige otra:
  * si no existe o no hay stock, lo informa. La única equivalencia es la transposición
- * a cilindro negativo (la misma luna óptica).
+ * a cilindro negativo (la misma luna óptica). Solo busca en el stock de la sede del pedido.
  */
-export async function buscarMedidaExacta(productoId: string, ojo: OjoOrden, producto: Producto) {
+export async function buscarMedidaExacta(sedeId: string, productoId: string, ojo: OjoOrden, producto: Producto) {
   const optica = await exigirOptica();
   const supabase = await crearClienteServidor();
   const m = aCilindroNegativo({ esfera: Number(ojo.esfera ?? 0), cilindro: Number(ojo.cilindro ?? 0), eje: ojo.eje });
@@ -282,6 +289,7 @@ export async function buscarMedidaExacta(productoId: string, ojo: OjoOrden, prod
     .from("lunas_existencias")
     .select("*")
     .eq("optica_id", optica.id)
+    .eq("sede_id", sedeId)
     .eq("producto_id", productoId)
     .eq("esfera", m.esfera)
     .eq("cilindro", m.cilindro)
@@ -297,7 +305,7 @@ export async function buscarMedidaExacta(productoId: string, ojo: OjoOrden, prod
 }
 
 /** Sugerencias (solo para que el usuario decida): medidas vecinas del mismo producto y la misma medida en otros productos. */
-export async function sugerencias(productoId: string, medida: { esfera: number; cilindro: number }, adicion: number | null, ojo: "OD" | "OI") {
+export async function sugerencias(sedeId: string, productoId: string, medida: { esfera: number; cilindro: number }, adicion: number | null, ojo: "OD" | "OI") {
   const optica = await exigirOptica();
   const supabase = await crearClienteServidor();
   const [vecinas, otros] = await Promise.all([
@@ -305,6 +313,7 @@ export async function sugerencias(productoId: string, medida: { esfera: number; 
       .from("lunas_existencias")
       .select("*")
       .eq("optica_id", optica.id)
+      .eq("sede_id", sedeId)
       .eq("producto_id", productoId)
       .eq("activo", true)
       .gt("disponible", 0)
@@ -317,6 +326,7 @@ export async function sugerencias(productoId: string, medida: { esfera: number; 
       .from("lunas_existencias")
       .select("*")
       .eq("optica_id", optica.id)
+      .eq("sede_id", sedeId)
       .neq("producto_id", productoId)
       .eq("activo", true)
       .gt("disponible", 0)

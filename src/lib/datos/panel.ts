@@ -1,6 +1,6 @@
 import type { OrdenResumen } from "@/lib/datos/ordenes";
 import { ACTIVOS, PENDIENTES_DE_LLEGAR } from "@/lib/ordenes/estados";
-import { exigirOptica } from "@/lib/sesion";
+import { exigirOptica, sedeFiltro } from "@/lib/sesion";
 import { crearClienteServidor } from "@/lib/supabase/servidor";
 import { hoyISO } from "@/lib/validacion/comun";
 
@@ -8,16 +8,22 @@ import { hoyISO } from "@/lib/validacion/comun";
 export const inicioDeMes = (hoy = new Date()) => `${hoy.toISOString().slice(0, 7)}-01`;
 
 const COLUMNAS =
-  "id, numero, estado, prioridad, tipo_trabajo, fecha_entrega_prometida, creado_en, paciente:pacientes!inner(id, nombres, apellidos, telefono), laboratorio:laboratorios(id, nombre)";
+  "id, numero, estado, prioridad, tipo_trabajo, fecha_entrega_prometida, creado_en, paciente:pacientes!inner(id, nombres, apellidos, telefono), laboratorio:laboratorios(id, nombre), sede:sedes(id, nombre)";
 
-/** Indicadores operativos del panel, calculados con datos reales de la óptica actual. */
+/** Indicadores operativos del panel: pedidos de la sede elegida (o de todas las del usuario); pacientes de toda la óptica. */
 export async function resumenPanel() {
-  const optica = await exigirOptica();
+  const [optica, sede] = await Promise.all([exigirOptica(), sedeFiltro()]);
   const supabase = await crearClienteServidor();
   const hoy = hoyISO();
   const contar = { count: "exact" as const, head: true };
-  const ordenes = () => supabase.from("ordenes").select("id", contar).eq("optica_id", optica.id);
-  const lista = () => supabase.from("ordenes").select(COLUMNAS).eq("optica_id", optica.id);
+  const ordenes = () => {
+    const q = supabase.from("ordenes").select("id", contar).eq("optica_id", optica.id);
+    return sede ? q.eq("sede_id", sede) : q;
+  };
+  const lista = () => {
+    const q = supabase.from("ordenes").select(COLUMNAS).eq("optica_id", optica.id);
+    return sede ? q.eq("sede_id", sede) : q;
+  };
 
   const [activas, atrasadas, listas, pacientes, recientes, seguimiento, paraEntregar] = await Promise.all([
     ordenes().in("estado", ACTIVOS),

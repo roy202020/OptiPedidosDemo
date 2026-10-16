@@ -81,7 +81,10 @@ export function TablaOrdenes({
               <Link href={`/panel/ordenes/${o.id}`} className="font-semibold text-marca-800 tabular-nums hover:underline">
                 {numeroOrden(o.numero)}
               </Link>
-              <p className="text-xs text-slate-500">{TIPOS_TRABAJO[o.tipo_trabajo]}</p>
+              <p className="text-xs text-slate-500">
+                {TIPOS_TRABAJO[o.tipo_trabajo]}
+                {o.sede && ` · ${o.sede.nombre}`}
+              </p>
             </Td>
             {!sinPaciente && (
               <Td>

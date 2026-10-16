@@ -15,6 +15,10 @@ export const PERMISOS = {
   configurarMetas: ["propietario", "administrador"],
   /** Datos de la óptica (nombre, RUC, contacto) y auditoría. */
   administrarOptica: ["propietario", "administrador"],
+  /** Crear sedes, activarlas o desactivarlas y asignar usuarios a cada sede. */
+  gestionarSedes: ["propietario"],
+  /** Reporte consolidado de todas las sedes. */
+  verConsolidado: ["propietario"],
   /** Alta, rol y desactivación de miembros. */
   gestionarMiembros: ["propietario"],
 } as const satisfies Record<string, readonly Rol[]>;
@@ -27,5 +31,5 @@ export const tienePermiso = (rol: Rol, permiso: Permiso) => (PERMISOS[permiso] a
 export const NOMBRE_ROL: Record<Rol, string> = {
   propietario: "Propietario",
   administrador: "Administrador",
-  operador: "Operador",
+  operador: "Vendedor",
 };

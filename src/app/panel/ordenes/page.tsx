@@ -221,7 +221,10 @@ function TarjetaOrden({ orden: o, hoy }: { orden: OrdenResumen; hoy: string }) {
       <p className="mt-1 truncate text-sm font-medium text-slate-900">
         {o.paciente.apellidos}, {o.paciente.nombres}
       </p>
-      <p className="truncate text-xs text-slate-500">{o.laboratorio?.nombre}</p>
+      <p className="truncate text-xs text-slate-500">
+        {o.laboratorio?.nombre}
+        {o.sede && ` · ${o.sede.nombre}`}
+      </p>
       <div className="mt-2 empty:hidden">
         <MarcasOrden orden={o} hoy={hoy} />
       </div>

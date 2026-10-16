@@ -23,7 +23,18 @@ const signo = (n: number) => (n === 0 ? "0.00" : `${n > 0 ? "+" : ""}${n.toFixed
 const claveCelda = (p: string, lado: string, ad: number | null, esf: number, cil: number) =>
   `${p}|${lado}|${ad == null ? "" : ad.toFixed(2)}|${esf.toFixed(2)}|${cil.toFixed(2)}`;
 
-export function FormularioCompra({ productos, hoy, inicial }: { productos: ProductoCompra[]; hoy: string; inicial?: string }) {
+export function FormularioCompra({
+  productos,
+  hoy,
+  inicial,
+  sede,
+}: {
+  productos: ProductoCompra[];
+  hoy: string;
+  inicial?: string;
+  /** Sede que recibe la compra. */
+  sede: string;
+}) {
   const [estado, enviar] = useActionState(registrarCompra, {} as EstadoFormulario);
   const [productoId, setProductoId] = useState(inicial ?? productos[0]?.id ?? "");
   const [esfDesde, setEsfDesde] = useState("-6");
@@ -116,6 +127,7 @@ export function FormularioCompra({ productos, hoy, inicial }: { productos: Produ
   return (
     <form action={enviar} className="flex flex-col gap-6" noValidate>
       <input type="hidden" name="lineas" value={JSON.stringify(lineas)} />
+      <input type="hidden" name="sede_id" value={sede} />
       {estado.error && <Alerta tipo="error">{estado.error}</Alerta>}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

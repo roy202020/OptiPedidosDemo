@@ -1,4 +1,4 @@
-import { FileText, FlaskConical, Plus, Search, Users } from "lucide-react";
+import { FileText, FlaskConical, MapPin, Plus, Search, Users } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
@@ -7,6 +7,7 @@ import { listarLaboratorios } from "@/lib/datos/laboratorios";
 import { recetasUtilizables } from "@/lib/datos/ordenes";
 import { listarPacientes, obtenerPaciente } from "@/lib/datos/pacientes";
 import { fecha, graduacion } from "@/lib/formato";
+import { sedeParaRegistrar } from "@/lib/sesion";
 import { hoyISO } from "@/lib/validacion/comun";
 import { crearOrden } from "../acciones";
 import { FormularioOrden } from "../formulario-orden";
@@ -91,15 +92,19 @@ function textoReceta(r: Awaited<ReturnType<typeof recetasUtilizables>>[number]) 
 
 /** Paso 2: datos de la orden. */
 async function Formulario({ pacienteId }: { pacienteId: string }) {
-  const [paciente, recetas, labs] = await Promise.all([
+  const [paciente, recetas, labs, destino] = await Promise.all([
     obtenerPaciente(pacienteId),
     recetasUtilizables(pacienteId),
     listarLaboratorios({ soloActivos: true }),
+    sedeParaRegistrar(),
   ]);
   const nombre = `${paciente.apellidos}, ${paciente.nombres}`;
 
   if (paciente.archivado_en) {
     return <EstadoVacio icono={Users} titulo="Paciente archivado" descripcion={`Restaura a ${nombre} para crearle órdenes.`} />;
+  }
+  if (!destino.sede) {
+    return <EstadoVacio icono={MapPin} titulo="Elige la sede de la venta" descripcion={destino.error} />;
   }
   if (recetas.length === 0) {
     return (
@@ -126,6 +131,7 @@ async function Formulario({ pacienteId }: { pacienteId: string }) {
   return (
     <Tarjeta
       titulo={`2. Datos de la orden para ${nombre}`}
+      descripcion={`Se registrará en la sede ${destino.sede.nombre}: ahí se recogerán los lentes.`}
       acciones={
         <Link href="/panel/ordenes/nueva" className="text-sm font-medium text-marca-700 hover:underline">
           Cambiar paciente
@@ -133,7 +139,7 @@ async function Formulario({ pacienteId }: { pacienteId: string }) {
       }
     >
       <FormularioOrden
-        accion={crearOrden.bind(null, pacienteId)}
+        accion={crearOrden.bind(null, pacienteId, destino.sede.id)}
         recetas={recetas.map((r) => ({ valor: r.id, texto: textoReceta(r) }))}
         laboratorios={labs.map((l) => ({ valor: l.id, texto: l.nombre }))}
         ojos={ojos}

@@ -54,7 +54,10 @@ async function Detalle({ params, searchParams }: Props) {
   const [transiciones, aviso, optica] = await Promise.all([transicionesDesde(o.estado), avisoDeOrden(id), exigirOptica()]);
   const supabase = await crearClienteServidor();
   const { data: datosOptica } = await supabase.from("opticas").select("nombre, telefono").eq("id", optica.id).single();
-  const whatsapp = enlaceWhatsAppLaboratorio(o, { nombre: datosOptica?.nombre ?? optica.nombre, telefono: datosOptica?.telefono });
+  const whatsapp = enlaceWhatsAppLaboratorio(o, {
+    nombre: `${datosOptica?.nombre ?? optica.nombre} (sede ${o.sede.nombre})`,
+    telefono: o.sede.telefono ?? datosOptica?.telefono,
+  });
   const hoy = hoyISO();
   const cobro = resumenPagos(o, o.pagos);
 
@@ -119,6 +122,7 @@ async function Detalle({ params, searchParams }: Props) {
           <Tarjeta titulo="Trabajo">
             <Datos
               items={[
+                { titulo: "Sede", valor: o.sede.nombre },
                 { titulo: "Tipo", valor: TIPOS_TRABAJO[o.tipo_trabajo] },
                 { titulo: "Prioridad", valor: o.prioridad === "urgente" ? <Insignia tono="ambar">Urgente</Insignia> : "Normal" },
                 { titulo: "Entrega prometida", valor: fecha(o.fecha_entrega_prometida) },

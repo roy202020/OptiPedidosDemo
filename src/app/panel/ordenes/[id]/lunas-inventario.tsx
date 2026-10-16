@@ -154,10 +154,10 @@ async function Resultado({
   ojo: OjoOrden;
   producto: Awaited<ReturnType<typeof listarProductos>>[number];
 }) {
-  const { medida, adicion, variante } = await buscarMedidaExacta(producto.id, ojo, producto);
+  const { medida, adicion, variante } = await buscarMedidaExacta(orden.sede_id, producto.id, ojo, producto);
   const exacta = { ...medida, adicion, lado: producto.por_lado ? ojo.ojo : null };
   const disponible = variante && variante.disponible > 0;
-  const sug = disponible ? null : await sugerencias(producto.id, medida, adicion, ojo.ojo);
+  const sug = disponible ? null : await sugerencias(orden.sede_id, producto.id, medida, adicion, ojo.ojo);
 
   return (
     <div className="mt-3 space-y-3 text-sm">

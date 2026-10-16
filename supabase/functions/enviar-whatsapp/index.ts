@@ -11,7 +11,9 @@
 //
 // Secretos (supabase secrets set …, o supabase/functions/.env en local):
 //   WHATSAPP_TOKEN            Token de acceso permanente de la app de Meta (usuario del sistema).
-//   WHATSAPP_PHONE_NUMBER_ID  Id del número de WhatsApp Business emisor.
+//   WHATSAPP_PHONE_NUMBER_ID  Id del número emisor por defecto. Cada sede puede tener el suyo
+//                             (sedes.whatsapp_phone_number_id): el aviso sale del número de la
+//                             sede donde se vendió y se recoge el lente.
 //   WHATSAPP_TEMPLATE         Nombre de la plantilla aprobada (por defecto: lentes_listos).
 //   WHATSAPP_TEMPLATE_LANG    Idioma de la plantilla (por defecto: es).
 //   WHATSAPP_API_URL          Opcional, base de la Graph API (por defecto: https://graph.facebook.com/v21.0).
@@ -53,11 +55,11 @@ const rpc = (fn: string, args: Record<string, unknown>) =>
   rest(`rpc/${fn}`, { method: "POST", body: JSON.stringify(args), ...servicio });
 
 /** Envía la plantilla. Devuelve el id del mensaje o lanza un error con el detalle del proveedor. */
-async function enviarPlantilla(telefono: string, nombre: string): Promise<string> {
+async function enviarPlantilla(numeroEmisor: string, telefono: string, nombre: string): Promise<string> {
   const controlador = new AbortController();
   const limite = setTimeout(() => controlador.abort(), 10_000);
   try {
-    const r = await fetch(`${WA_API}/${WA_PHONE_ID}/messages`, {
+    const r = await fetch(`${WA_API}/${numeroEmisor}/messages`, {
       method: "POST",
       signal: controlador.signal,
       headers: { Authorization: `Bearer ${WA_TOKEN}`, "Content-Type": "application/json" },
@@ -106,16 +108,17 @@ Deno.serve(async (req) => {
     if (!aviso) return responder(200, { estado: visibles[0].estado, enviado: false });
 
     // 3. Enviar, o registrar por qué no se pudo.
-    if (!WA_TOKEN || !WA_PHONE_ID) {
+    const numeroEmisor: string = aviso.phone_number_id || WA_PHONE_ID;
+    if (!WA_TOKEN || !numeroEmisor) {
       await rpc("registrar_envio", {
         p_id: id,
         p_ok: false,
-        p_error: "WhatsApp no está configurado: faltan los secretos WHATSAPP_TOKEN y WHATSAPP_PHONE_NUMBER_ID",
+        p_error: "WhatsApp no está configurado: falta el secreto WHATSAPP_TOKEN o el número de WhatsApp de la sede (ni hay WHATSAPP_PHONE_NUMBER_ID por defecto)",
       });
       return responder(200, { estado: "fallida", enviado: false });
     }
     try {
-      const mensajeId = await enviarPlantilla(aviso.telefono, aviso.paciente ?? "");
+      const mensajeId = await enviarPlantilla(numeroEmisor, aviso.telefono, aviso.paciente ?? "");
       await rpc("registrar_envio", { p_id: id, p_ok: true, p_mensaje_id: mensajeId });
       return responder(200, { estado: "enviada", enviado: true });
     } catch (e) {

@@ -6,12 +6,14 @@ import { Alerta, BotonEnviar, Campo } from "@/components/formulario";
 import type { EstadoFormulario } from "@/lib/estado-formulario";
 import { guardarMeta } from "./acciones";
 
-export function FormularioMeta({ mesActual, metaActual }: { mesActual: string; metaActual: string }) {
+/** Meta de una sede (`sede` es la sede mostrada; la base valida el acceso). */
+export function FormularioMeta({ mesActual, metaActual, sede }: { mesActual: string; metaActual: string; sede: string }) {
   const [estado, enviar] = useActionState(guardarMeta, {} as EstadoFormulario);
   const v = estado.valores ?? { periodo: mesActual, importe_objetivo: metaActual };
 
   return (
     <form action={enviar} className="flex flex-col gap-4" noValidate>
+      <input type="hidden" name="sede_id" value={sede} />
       {estado.error && <Alerta tipo="error">{estado.error}</Alerta>}
       {estado.listo && estado.aviso && <Alerta tipo="exito">{estado.aviso}</Alerta>}
       <div className="grid gap-4 sm:grid-cols-2">

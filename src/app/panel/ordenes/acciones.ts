@@ -24,10 +24,11 @@ import {
 
 const idValido = (id: string) => z.uuid().safeParse(id).success;
 
-export async function crearOrden(pacienteId: string, _previo: EstadoFormulario, datos: FormData): Promise<EstadoFormulario> {
+/** `sedeId` es la sede mostrada en el formulario; la base valida acceso y que esté activa. */
+export async function crearOrden(pacienteId: string, sedeId: string, _previo: EstadoFormulario, datos: FormData): Promise<EstadoFormulario> {
   await exigirOptica();
   const valores = valoresOrden(datos);
-  if (!idValido(pacienteId)) return { error: "Paciente inválido.", valores };
+  if (!idValido(pacienteId) || !idValido(sedeId)) return { error: "Paciente o sede inválidos.", valores };
   const r = esquemaOrden.safeParse(leerFormularioOrden(datos));
   if (!r.success) return { campos: erroresOrden(r.error), valores };
 
@@ -46,6 +47,7 @@ export async function crearOrden(pacienteId: string, _previo: EstadoFormulario, 
     p_observacion: d.observacion,
     p_precio: d.precio,
     p_descuento: d.descuento,
+    p_sede: sedeId,
   });
   if (error) return { error: mensajeDb(error), valores };
 

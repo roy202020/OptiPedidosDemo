@@ -63,6 +63,7 @@ tests/                   pruebas Vitest (api/, unit/)
 | `20261017000000_inventario_lunas` | Productos, variantes por medida exacta, movimientos, reservas, compras masivas, inventario físico, vista de existencias |
 | `20261017100000_orden_pagos` | Tabla `orden_pagos` (adelantos y saldo), control de saldo, anulación con motivo |
 | `20261017200000_caja_saldos` | Columna calculada `saldo` de cada orden y `caja_del_dia()` |
+| `20261018000000_sedes` | Tablas `sedes` y `miembro_sedes`, `sede_id` en pedidos, stock, caja, metas y avisos, RLS por sede, informes por sede y `reporte_consolidado()` |
 
 Ninguna migración borra tablas, columnas ni datos. La 0004 rellena `confirmada_en` de órdenes ya confirmadas
 desde su historial.
@@ -149,12 +150,36 @@ Reglas, todas aplicadas en la base:
 - El eje se guarda solo si el producto lo requiere. La carga por matriz registra medidas sin eje (lunas terminadas,
   donde el eje se da al biselar).
 
+## Sedes
+
+Jerarquía: **óptica (empresa) → sedes → usuarios**.
+
+- **De toda la óptica**: pacientes, recetas, laboratorios y catálogo de lunas (un paciente se atiende en cualquier sede).
+- **De una sede** (`sede_id` obligatorio): pedidos y sus pagos, avisos y reservas; stock de lunas (variantes,
+  compras, conteos, movimientos); metas. La sede de un registro no cambia nunca.
+- El lente se recoge **siempre en la sede donde se vendió**: el ticket muestra sus datos y el aviso por WhatsApp sale
+  del número de esa sede (`sedes.whatsapp_phone_number_id`, o el secreto `WHATSAPP_PHONE_NUMBER_ID` si está vacío).
+- Acceso (`tiene_sede()`): el propietario ve todas; administradores y vendedores, las asignadas en `miembro_sedes`.
+  Lo aplican las políticas RLS de cada tabla y triggers (`f_sede_asignar`, `f_sede_heredar`) que validan la sede al
+  crear: nadie registra en una sede ajena aunque llame directo a la API. Pagos, avisos y movimientos heredan la sede
+  del pedido o de la medida; un pedido solo reserva lunas del stock de su sede.
+- Las sedes no se borran: se desactivan (sin pedidos, compras ni metas nuevas; el historial se conserva). Siempre
+  queda una activa. Toda óptica nueva nace con su «Sede principal»; con una sola sede, los miembros nuevos quedan
+  asignados a ella y la base la usa si no se indica otra.
+- La migración 0010 creó una «Sede principal» por óptica existente, con todos sus registros y miembros.
+- **Selector de sede** arriba (cookie validada en el servidor): solo lista las sedes del usuario y, con más de una,
+  «Todas mis sedes» para consultar. Para registrar hay que tener una sede concreta elegida.
+- **Consolidado** (Ventas y metas, solo propietario): ventas, pedidos, metas, cobros y saldos del mes por sede y total.
+- Pantalla **Administración → Sedes**: el propietario crea y desactiva sedes y asigna usuarios; el administrador
+  edita los datos de contacto de sus sedes.
+
 ## Roles y permisos
 
 Se comprueban en la interfaz, en cada Server Action y en la base (RLS y funciones `SECURITY DEFINER` con
-verificación de rol).
+verificación de rol). El rol `operador` se muestra como **Vendedor**. Salvo el propietario, cada persona solo ve
+y registra datos de sus sedes asignadas.
 
-| | Propietario | Administrador | Operador |
+| | Propietario | Administrador | Vendedor |
 |---|:-:|:-:|:-:|
 | Pacientes, recetas, órdenes, laboratorios | ✓ | ✓ | ✓ |
 | Inventario: compras, ventas, pérdidas, devoluciones, reservas | ✓ | ✓ | ✓ |
@@ -163,6 +188,9 @@ verificación de rol).
 | Ventas totales, informes y metas | ✓ | ✓ | — |
 | Datos de la óptica, auditoría | ✓ | ✓ | — |
 | Agregar miembros, cambiar roles, quitar acceso | ✓ | — | — |
+| Crear y desactivar sedes, asignar usuarios a sedes | ✓ | — | — |
+| Editar datos de contacto y WhatsApp de la sede | ✓ | sus sedes | — |
+| Consolidado de todas las sedes | ✓ | — | — |
 
 Para sumar a alguien: la persona crea su cuenta y el propietario la agrega con ese correo en **Administración**.
 La óptica siempre conserva al menos un propietario activo.

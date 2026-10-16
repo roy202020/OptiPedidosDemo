@@ -1,8 +1,8 @@
-import { UserCheck, UserX } from "lucide-react";
+import { Building2, UserCheck, UserX } from "lucide-react";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Confirmacion } from "@/components/formulario";
-import { Cargando, Encabezado, Insignia, Tabla, Tarjeta, Td, Th } from "@/components/ui";
+import { Cargando, Encabezado, EnlaceBoton, Insignia, Tabla, Tarjeta, Td, Th } from "@/components/ui";
 import { fecha } from "@/lib/formato";
 import { NOMBRE_ROL, tienePermiso, type Rol } from "@/lib/permisos";
 import { exigirPermiso, obtenerUsuario } from "@/lib/sesion";
@@ -15,7 +15,11 @@ export const metadata: Metadata = { title: "Administración" };
 export default function PaginaAdministracion() {
   return (
     <>
-      <Encabezado titulo="Administración" descripcion="Datos de la óptica y personas con acceso." />
+      <Encabezado titulo="Administración" descripcion="Datos de la óptica, sedes y personas con acceso.">
+        <EnlaceBoton href="/panel/administracion/sedes" icono={Building2}>
+          Sedes
+        </EnlaceBoton>
+      </Encabezado>
       <Suspense fallback={<Cargando alto="h-96" />}>
         <Contenido />
       </Suspense>
@@ -51,7 +55,7 @@ async function Contenido() {
         titulo="Miembros"
         descripcion={
           gestiona
-            ? "Propietario: todo, incluidos miembros. Administrador: operación, ventas, metas y datos de la óptica. Operador: pacientes, recetas, órdenes y laboratorios."
+            ? "Propietario: todo, incluidos miembros y sedes. Administrador: operación, ventas, metas y datos de sus sedes. Vendedor: pacientes, recetas, órdenes y laboratorios de sus sedes. Las sedes de cada persona se asignan en Sedes."
             : "Solo el propietario puede agregar miembros o cambiar roles."
         }
         sinRelleno

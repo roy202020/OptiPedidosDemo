@@ -57,6 +57,9 @@ export async function cambiarProductoActivo(id: string, activo: boolean, _previo
 export async function registrarCompra(_previo: EstadoFormulario, datos: FormData): Promise<EstadoFormulario> {
   const optica = await exigirOptica();
   const valores = valoresDe(datos);
+  // Sede mostrada en el formulario; la base valida que el usuario tenga acceso y que esté activa.
+  const sedeId = String(datos.get("sede_id") ?? "");
+  if (!idValido(sedeId)) return { error: "Elige la sede de la compra en el selector de arriba.", valores };
   let lineas: unknown = [];
   try {
     lineas = JSON.parse(String(datos.get("lineas") ?? "[]"));
@@ -78,6 +81,7 @@ export async function registrarCompra(_previo: EstadoFormulario, datos: FormData
     p_fecha: d.fecha,
     p_notas: d.notas ?? "",
     p_lineas: d.lineas.map((l) => ({ ...l, lote: d.lote })),
+    p_sede: sedeId,
   });
   if (error) return { error: mensajeDb(error), valores };
 
@@ -129,10 +133,15 @@ export async function registrarMovimiento(varianteId: string, _previo: EstadoFor
   return { listo: true, aviso: "Movimiento registrado." };
 }
 
-/** Inventario físico de un producto: solo las celdas contadas (c_<varianteId>). */
-export async function registrarConteo(productoId: string, _previo: EstadoFormulario, datos: FormData): Promise<EstadoFormulario> {
+/** Inventario físico de un producto en una sede: solo las celdas contadas (c_<varianteId>). */
+export async function registrarConteo(
+  productoId: string,
+  sedeId: string,
+  _previo: EstadoFormulario,
+  datos: FormData,
+): Promise<EstadoFormulario> {
   const optica = await exigirPermiso("administrarOptica");
-  if (!idValido(productoId)) return { error: "Producto inválido." };
+  if (!idValido(productoId) || !idValido(sedeId)) return { error: "Producto o sede inválidos." };
   const lineas: { variante_id: string; contado: number }[] = [];
   for (const [k, v] of datos.entries()) {
     if (!k.startsWith("c_") || typeof v !== "string" || v.trim() === "") continue;
@@ -148,6 +157,7 @@ export async function registrarConteo(productoId: string, _previo: EstadoFormula
     p_optica: optica.id,
     p_notas: String(datos.get("notas") ?? "").slice(0, 300),
     p_lineas: lineas,
+    p_sede: sedeId,
   });
   if (error) return { error: mensajeDb(error) };
   revalidatePath("/panel/inventario", "layout");

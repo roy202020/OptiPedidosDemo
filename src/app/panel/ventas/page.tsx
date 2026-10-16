@@ -1,12 +1,12 @@
-import { CalendarDays, Receipt, Target, TrendingDown, TrendingUp } from "lucide-react";
+import { Building2, CalendarDays, Receipt, Target, TrendingDown, TrendingUp } from "lucide-react";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { BarraProgreso, Cargando, Encabezado, EnlaceBoton, Indicador, Insignia, Tabla, Tarjeta, Td, Th } from "@/components/ui";
-import { cajaDelDia, cumplimiento, variacion, ventasDelDia, ventasMensuales } from "@/lib/datos/ventas";
+import { cajaDelDia, cumplimiento, reporteConsolidado, variacion, ventasDelDia, ventasMensuales } from "@/lib/datos/ventas";
 import { mes, soles } from "@/lib/formato";
 import { MEDIOS_PAGO, type MedioPago } from "@/lib/ordenes/pagos";
 import { tienePermiso } from "@/lib/permisos";
-import { exigirPermiso } from "@/lib/sesion";
+import { exigirPermiso, obtenerSedeActual } from "@/lib/sesion";
 import { FormularioMeta } from "./formulario-meta";
 import { GraficoVentas } from "./grafico-ventas";
 
@@ -30,13 +30,23 @@ const porcentaje = (n: number) => `${n.toLocaleString("es-PE", { maximumFraction
 
 async function Contenido() {
   const optica = await exigirPermiso("verVentas");
-  const [meses, hoy, caja] = await Promise.all([ventasMensuales(12), ventasDelDia(), cajaDelDia()]);
+  const [meses, hoy, caja, { actual: sede }] = await Promise.all([ventasMensuales(12), ventasDelDia(), cajaDelDia(), obtenerSedeActual()]);
   const [actual, anterior] = meses;
   const c = cumplimiento(actual.ventas, actual.meta);
   const v = variacion(actual.ventas, anterior?.ventas);
 
   return (
     <div className="flex flex-col gap-6">
+      <p className="-mt-2 text-sm text-slate-600">
+        Mostrando: <strong className="font-medium text-slate-900">{sede ? `sede ${sede.nombre}` : "todas tus sedes"}</strong>
+      </p>
+
+      {tienePermiso(optica.rol, "verConsolidado") && (
+        <Suspense fallback={<Cargando alto="h-48" />}>
+          <Consolidado />
+        </Suspense>
+      )}
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Indicador titulo="Ventas de hoy" valor={soles(hoy.ventas)} detalle={`${hoy.ordenes} órdenes confirmadas`} icono={Receipt} />
         <Indicador
@@ -112,11 +122,18 @@ async function Contenido() {
           <GraficoVentas datos={meses} />
         </Tarjeta>
 
-        <Tarjeta titulo="Meta mensual" descripcion="Importe objetivo de ventas netas.">
-          {tienePermiso(optica.rol, "configurarMetas") ? (
-            <FormularioMeta mesActual={actual.periodo.slice(0, 7)} metaActual={actual.meta ? actual.meta.toFixed(2) : ""} />
-          ) : (
+        <Tarjeta titulo="Meta mensual" descripcion={sede ? `Importe objetivo de ventas netas de la sede ${sede.nombre}.` : "Importe objetivo de ventas netas."}>
+          {!tienePermiso(optica.rol, "configurarMetas") ? (
             <p className="text-sm text-slate-500">Tu rol no permite configurar metas.</p>
+          ) : sede ? (
+            <FormularioMeta
+              key={sede.id}
+              sede={sede.id}
+              mesActual={actual.periodo.slice(0, 7)}
+              metaActual={actual.meta ? actual.meta.toFixed(2) : ""}
+            />
+          ) : (
+            <p className="text-sm text-slate-500">Cada sede tiene su propia meta: elige una sede en el selector de arriba para fijarla.</p>
           )}
         </Tarjeta>
       </div>
@@ -155,5 +172,98 @@ async function Contenido() {
         </tbody>
       </Tabla>
     </div>
+  );
+}
+
+/** Consolidado del mes por sede y total (solo propietario). */
+async function Consolidado() {
+  const { filas, total } = await reporteConsolidado();
+  const avance = (ventas: number, meta: number | null) => {
+    const c = cumplimiento(ventas, meta);
+    return c ? <Insignia tono={c.falta === 0 ? "verde" : "azul"}>{porcentaje(c.porcentaje)}</Insignia> : <span className="text-slate-400">Sin meta</span>;
+  };
+
+  return (
+    <Tarjeta
+      titulo="Consolidado de sedes"
+      descripcion="Mes actual, sin importar la sede elegida arriba. Ventas netas confirmadas; cobrado = pagos vigentes del mes."
+      acciones={<Building2 aria-hidden className="size-5 text-marca-600" />}
+      sinRelleno
+    >
+      {/* Celular: una tarjeta por sede */}
+      <ul className="divide-y divide-slate-100 sm:hidden">
+        {[...filas.map((f) => ({ ...f, clave: f.sedeId, total: false })), { ...total, clave: "total", sede: "Total óptica", activa: true, total: true }].map((f) => (
+          <li key={f.clave} className={`space-y-2 px-4 py-3 text-sm ${f.total ? "bg-slate-50 font-semibold" : ""}`}>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-slate-900">
+                {f.sede}
+                {!f.activa && <span className="ml-1 text-xs font-normal text-slate-500">(desactivada)</span>}
+              </span>
+              {avance(f.ventas, f.meta)}
+            </div>
+            <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-slate-600">
+              <dt>Ventas</dt>
+              <dd className="text-right tabular-nums text-slate-900">{soles(f.ventas)}</dd>
+              <dt>Meta</dt>
+              <dd className="text-right tabular-nums">{f.meta ? soles(f.meta) : "—"}</dd>
+              <dt>Pedidos en curso</dt>
+              <dd className="text-right tabular-nums">{f.pedidosEnCurso}</dd>
+              <dt>Cobrado</dt>
+              <dd className="text-right tabular-nums">{soles(f.cobrado)}</dd>
+              <dt>Saldos por cobrar</dt>
+              <dd className="text-right tabular-nums">{soles(f.saldoPendiente)}</dd>
+            </dl>
+          </li>
+        ))}
+      </ul>
+
+      {/* Tableta y escritorio */}
+      <div className="hidden overflow-x-auto sm:block">
+        <table className="w-full text-sm">
+          <caption className="sr-only">Ventas, pedidos y metas del mes por sede</caption>
+          <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <tr>
+              <th scope="col" className="px-4 py-2 text-left">Sede</th>
+              <th scope="col" className="px-3 py-2 text-right">Órdenes</th>
+              <th scope="col" className="px-3 py-2 text-right">Ventas</th>
+              <th scope="col" className="px-3 py-2 text-right">Meta</th>
+              <th scope="col" className="px-3 py-2 text-right">Avance</th>
+              <th scope="col" className="px-3 py-2 text-right">En curso</th>
+              <th scope="col" className="hidden px-3 py-2 text-right md:table-cell">Cobrado</th>
+              <th scope="col" className="hidden px-4 py-2 text-right md:table-cell">Saldos</th>
+            </tr>
+          </thead>
+          <tbody className="tabular-nums">
+            {filas.map((f) => (
+              <tr key={f.sedeId} className="border-t border-slate-100">
+                <th scope="row" className="px-4 py-2.5 text-left font-medium text-slate-900">
+                  {f.sede}
+                  {!f.activa && <span className="ml-1 text-xs font-normal text-slate-500">(desactivada)</span>}
+                </th>
+                <td className="px-3 py-2.5 text-right">{f.ordenes}</td>
+                <td className="px-3 py-2.5 text-right">{soles(f.ventas)}</td>
+                <td className="px-3 py-2.5 text-right">{f.meta ? soles(f.meta) : "—"}</td>
+                <td className="px-3 py-2.5 text-right">{avance(f.ventas, f.meta)}</td>
+                <td className="px-3 py-2.5 text-right">{f.pedidosEnCurso}</td>
+                <td className="hidden px-3 py-2.5 text-right md:table-cell">{soles(f.cobrado)}</td>
+                <td className="hidden px-4 py-2.5 text-right md:table-cell">{soles(f.saldoPendiente)}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot className="border-t-2 border-slate-200 bg-slate-50 font-semibold text-slate-900 tabular-nums">
+            <tr>
+              <th scope="row" className="px-4 py-2.5 text-left">Total óptica</th>
+              <td className="px-3 py-2.5 text-right">{total.ordenes}</td>
+              <td className="px-3 py-2.5 text-right">{soles(total.ventas)}</td>
+              <td className="px-3 py-2.5 text-right">{total.meta ? soles(total.meta) : "—"}</td>
+              <td className="px-3 py-2.5 text-right">{avance(total.ventas, total.meta)}</td>
+              <td className="px-3 py-2.5 text-right">{total.pedidosEnCurso}</td>
+              <td className="hidden px-3 py-2.5 text-right md:table-cell">{soles(total.cobrado)}</td>
+              <td className="hidden px-4 py-2.5 text-right md:table-cell">{soles(total.saldoPendiente)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </Tarjeta>
   );
 }

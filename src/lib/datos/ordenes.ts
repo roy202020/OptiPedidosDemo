@@ -8,7 +8,7 @@ import {
   type EstadoInterno,
 } from "@/lib/ordenes/estados";
 import type { Pago } from "@/lib/ordenes/pagos";
-import { exigirOptica } from "@/lib/sesion";
+import { exigirOptica, sedeFiltro } from "@/lib/sesion";
 import { crearClienteServidor } from "@/lib/supabase/servidor";
 import { hoyISO } from "@/lib/validacion/comun";
 
@@ -37,12 +37,13 @@ export type OrdenResumen = {
   creado_en: string;
   paciente: { id: string; nombres: string; apellidos: string; telefono: string | null };
   laboratorio: { id: string; nombre: string } | null;
+  sede: { id: string; nombre: string };
   /** Importe neto menos pagos vigentes (columna calculada public.saldo); llega como texto numérico. */
   saldo?: number | string;
 };
 
 const COLUMNAS_RESUMEN =
-  "id, numero, estado, prioridad, tipo_trabajo, fecha_entrega_prometida, creado_en, saldo, paciente:pacientes!inner(id, nombres, apellidos, telefono), laboratorio:laboratorios(id, nombre)";
+  "id, numero, estado, prioridad, tipo_trabajo, fecha_entrega_prometida, creado_en, saldo, paciente:pacientes!inner(id, nombres, apellidos, telefono), laboratorio:laboratorios(id, nombre), sede:sedes(id, nombre)";
 
 const esUuid = (v?: string) => Boolean(v && z.uuid().safeParse(v).success);
 const esFecha = (v?: string) => Boolean(v && z.iso.date().safeParse(v).success);
@@ -77,14 +78,13 @@ function aplicarFiltros<Q extends { [k: string]: any }>(consulta: Q, f: FiltrosO
 }
 
 export async function listarOrdenes(f: FiltrosOrdenes) {
-  const optica = await exigirOptica();
+  const [optica, sede] = await Promise.all([exigirOptica(), sedeFiltro()]);
   const supabase = await crearClienteServidor();
   const pagina = Math.max(1, f.pagina ?? 1);
 
-  const consulta = aplicarFiltros(
-    supabase.from("ordenes").select(COLUMNAS_RESUMEN, { count: "exact" }).eq("optica_id", optica.id),
-    f,
-  )
+  let base = supabase.from("ordenes").select(COLUMNAS_RESUMEN, { count: "exact" }).eq("optica_id", optica.id);
+  if (sede) base = base.eq("sede_id", sede);
+  const consulta = aplicarFiltros(base, f)
     .order("creado_en", { ascending: false })
     .range((pagina - 1) * ORDENES_POR_PAGINA, pagina * ORDENES_POR_PAGINA - 1);
 
@@ -96,11 +96,14 @@ export async function listarOrdenes(f: FiltrosOrdenes) {
 
 /** Órdenes para el tablero: activas más las entregadas en los últimos 14 días. */
 export async function listarTablero(f: FiltrosOrdenes) {
-  const optica = await exigirOptica();
+  const [optica, sede] = await Promise.all([exigirOptica(), sedeFiltro()]);
   const supabase = await crearClienteServidor();
   const hace14 = new Date(Date.now() - 14 * 86_400_000).toISOString();
 
-  const base = () => supabase.from("ordenes").select(COLUMNAS_RESUMEN).eq("optica_id", optica.id);
+  const base = () => {
+    const q = supabase.from("ordenes").select(COLUMNAS_RESUMEN).eq("optica_id", optica.id);
+    return sede ? q.eq("sede_id", sede) : q;
+  };
   const [activas, entregadas] = await Promise.all([
     aplicarFiltros(base().in("estado", ACTIVOS), { ...f, estado: undefined }).order("fecha_entrega_prometida").limit(300),
     f.atrasadas
@@ -133,8 +136,11 @@ export type OrdenOjo = {
   observaciones: string | null;
 };
 
-export type OrdenDetalle = OrdenResumen & {
+export type OrdenDetalle = Omit<OrdenResumen, "sede"> & {
   optica_id: string;
+  sede_id: string;
+  /** Sede donde se vendió y donde se recogen los lentes. */
+  sede: { id: string; nombre: string; direccion: string | null; telefono: string | null };
   receta_id: string;
   laboratorio_id: string;
   montura_descripcion: string | null;
@@ -167,6 +173,7 @@ export async function obtenerOrden(id: string) {
         `*,
          paciente:pacientes(id, nombres, apellidos, telefono, email),
          laboratorio:laboratorios(id, nombre, telefono, contacto, activo),
+         sede:sedes(id, nombre, direccion, telefono),
          receta:recetas(id, fecha_examen, profesional, anulada_en),
          ojos:orden_ojos(*),
          historial:orden_historial_estados(id, desde, hasta, usuario_id, creado_en),

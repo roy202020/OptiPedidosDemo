@@ -62,8 +62,10 @@ async function Ticket({ params, searchParams }: Props) {
         <header className="text-center">
           <p className="text-[13px] font-bold uppercase">{op.nombre}</p>
           {op.ruc && <p>RUC {op.ruc}</p>}
-          {op.direccion && <p>{op.direccion}</p>}
-          {op.telefono && <p>Tel. {op.telefono}</p>}
+          {/* Sede de la venta: ahí se recogen los lentes. Sin datos propios, los de la óptica. */}
+          <p>Sede {o.sede.nombre}</p>
+          {(o.sede.direccion ?? op.direccion) && <p>{o.sede.direccion ?? op.direccion}</p>}
+          {(o.sede.telefono ?? op.telefono) && <p>Tel. {o.sede.telefono ?? op.telefono}</p>}
         </header>
         <Linea />
         <div className="text-center">

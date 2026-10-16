@@ -126,7 +126,7 @@ select is_empty($$ select 1 from ordenes o where public.saldo(o) > 0 and optica_
   'otra óptica no ve saldos de A');
 
 reset role;
-select ok(not has_function_privilege('anon', 'public.caja_del_dia(uuid)', 'execute'), 'anon no ejecuta caja_del_dia');
+select ok(not has_function_privilege('anon', 'public.caja_del_dia(uuid, uuid)', 'execute'), 'anon no ejecuta caja_del_dia');
 select ok(not has_function_privilege('anon', 'public.saldo(public.ordenes)', 'execute'), 'anon no ejecuta saldo');
 
 select * from finish();
