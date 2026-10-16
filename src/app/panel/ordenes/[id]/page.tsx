@@ -21,11 +21,13 @@ import { avisoDeOrden, type Aviso } from "@/lib/notificaciones";
 import { enlaceWhatsAppLaboratorio } from "@/lib/ordenes/mensaje-laboratorio";
 import { exigirOptica } from "@/lib/sesion";
 import { crearClienteServidor } from "@/lib/supabase/servidor";
-import { hoyISO } from "@/lib/validacion/comun";
-import { agregarObservacion, cambiarEstado, reintentarAviso } from "../acciones";
+import { MEDIOS_PAGO, resumenPagos } from "@/lib/ordenes/pagos";
+import { hoyISO, hoyLimaISO } from "@/lib/validacion/comun";
+import { agregarObservacion, anularPago, cambiarEstado, registrarPago, reintentarAviso } from "../acciones";
 import { InsigniaEstado, MarcasOrden } from "../componentes";
 import { LunasInventario } from "./lunas-inventario";
 import { NuevaObservacion } from "./nueva-observacion";
+import { RegistrarPago } from "./registrar-pago";
 
 export const metadata: Metadata = { title: "Orden" };
 
@@ -54,6 +56,7 @@ async function Detalle({ params, searchParams }: Props) {
   const { data: datosOptica } = await supabase.from("opticas").select("nombre, telefono").eq("id", optica.id).single();
   const whatsapp = enlaceWhatsAppLaboratorio(o, { nombre: datosOptica?.nombre ?? optica.nombre, telefono: datosOptica?.telefono });
   const hoy = hoyISO();
+  const cobro = resumenPagos(o, o.pagos);
 
   // Primero los avances, luego "devolver" y al final "anular".
   const orden = (e: EstadoInterno) => (e === "anulada" ? 99 : e === "borrador" ? 98 : ESTADOS_INTERNOS.indexOf(e));
@@ -94,7 +97,7 @@ async function Detalle({ params, searchParams }: Props) {
           </EnlaceBoton>
         )}
         {destinos.map((hasta) => (
-          <BotonTransicion key={hasta} orden={o} hasta={hasta} principal={hasta === principal} />
+          <BotonTransicion key={hasta} orden={o} hasta={hasta} principal={hasta === principal} saldo={cobro.saldo} />
         ))}
       </Encabezado>
 
@@ -193,7 +196,20 @@ async function Detalle({ params, searchParams }: Props) {
         </div>
 
         <aside className="flex flex-col gap-6">
-          <Tarjeta titulo="Importe" descripcion="Soles, IGV incluido">
+          <Tarjeta
+            titulo="Importe"
+            descripcion="Soles, IGV incluido"
+            acciones={
+              cobro.neto > 0 &&
+              (cobro.saldo === 0 ? (
+                <Insignia tono="verde">Pagado</Insignia>
+              ) : cobro.pagado > 0 ? (
+                <Insignia tono="ambar">Con saldo</Insignia>
+              ) : (
+                <Insignia>Sin pagos</Insignia>
+              ))
+            }
+          >
             <dl className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <dt className="text-slate-500">Precio</dt>
@@ -205,9 +221,59 @@ async function Detalle({ params, searchParams }: Props) {
               </div>
               <div className="flex justify-between border-t border-slate-100 pt-2 font-semibold text-slate-900">
                 <dt>Importe neto</dt>
-                <dd className="tabular-nums">{soles(Number(o.precio) - Number(o.descuento))}</dd>
+                <dd className="tabular-nums">{soles(cobro.neto)}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-slate-500">Pagado</dt>
+                <dd className="tabular-nums">{soles(cobro.pagado)}</dd>
+              </div>
+              <div className={`flex justify-between font-semibold ${cobro.saldo > 0 ? "text-amber-800" : "text-slate-900"}`}>
+                <dt>Saldo</dt>
+                <dd className="tabular-nums">{soles(cobro.saldo)}</dd>
               </div>
             </dl>
+
+            {o.pagos.length > 0 && (
+              <ul className="mt-4 space-y-3 border-t border-slate-100 pt-4">
+                {o.pagos.map((p) => (
+                  <li key={p.id} className="flex items-start justify-between gap-3 text-sm">
+                    <div className={p.anulado_en ? "text-slate-400" : undefined}>
+                      <p className="font-medium tabular-nums">
+                        <span className={p.anulado_en ? "line-through" : undefined}>{soles(p.importe)}</span> · {MEDIOS_PAGO[p.medio]}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {fecha(p.fecha)} · {usuario(p.creado_por)}
+                      </p>
+                      {p.anulado_en && (
+                        <p className="text-xs text-red-700">
+                          Anulado el {fechaHora(p.anulado_en)} por {usuario(p.anulado_por)}: {p.motivo_anulacion}
+                        </p>
+                      )}
+                    </div>
+                    {!p.anulado_en && (
+                      <Confirmacion
+                        accion={anularPago.bind(null, p.id, id)}
+                        titulo={`Anular pago de ${soles(p.importe)}`}
+                        descripcion="El pago quedará anulado con su motivo y dejará de restar del saldo. Si el monto era otro, registra después el pago correcto."
+                        textoBoton="Anular"
+                        iconoBoton={<Ban />}
+                        tamanoBoton="sm"
+                        textoConfirmar="Anular pago"
+                        pendiente="Anulando…"
+                      >
+                        <Campo nombre="motivo" etiqueta="Motivo de la anulación" required maxLength={300} />
+                      </Confirmacion>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {o.estado !== "anulada" && cobro.saldo > 0 && (
+              <div className="mt-4 border-t border-slate-100 pt-4">
+                <RegistrarPago accion={registrarPago.bind(null, id)} saldo={cobro.saldo.toFixed(2)} hoy={hoyLimaISO()} />
+              </div>
+            )}
             <p className="mt-3 text-xs text-slate-500">
               {o.estado === "anulada"
                 ? "Orden anulada: no cuenta como venta."
@@ -313,7 +379,17 @@ function DescripcionLente({ ojo }: { ojo: OrdenDetalle["ojos"][number] }) {
   );
 }
 
-function BotonTransicion({ orden, hasta, principal }: { orden: OrdenDetalle; hasta: EstadoInterno; principal: boolean }) {
+function BotonTransicion({
+  orden,
+  hasta,
+  principal,
+  saldo,
+}: {
+  orden: OrdenDetalle;
+  hasta: EstadoInterno;
+  principal: boolean;
+  saldo: number;
+}) {
   const accion = cambiarEstado.bind(null, orden.id, orden.estado, hasta);
   const numero = numeroOrden(orden.numero);
 
@@ -339,11 +415,25 @@ function BotonTransicion({ orden, hasta, principal }: { orden: OrdenDetalle; has
     entregada: "Confirma que el paciente recibió sus lentes.",
   };
 
+  const descripcion = descripciones[hasta] ?? `La orden pasará a «${SUBESTADO[hasta]}».`;
+
   return (
     <Confirmacion
       accion={accion}
       titulo={`${ACCION_HACIA[hasta]} · ${numero}`}
-      descripcion={descripciones[hasta] ?? `La orden pasará a «${SUBESTADO[hasta]}».`}
+      descripcion={
+        hasta === "entregada" && saldo > 0 ? (
+          <div className="flex flex-col gap-3">
+            <p>{descripcion}</p>
+            <Alerta tipo="aviso">
+              Queda un saldo pendiente de <strong className="tabular-nums">{soles(saldo)}</strong>. Regístralo en «Importe» antes de entregar,
+              o confirma si el paciente se lleva los lentes con deuda.
+            </Alerta>
+          </div>
+        ) : (
+          descripcion
+        )
+      }
       textoBoton={ACCION_HACIA[hasta]}
       iconoBoton={hasta === "borrador" ? <Undo2 /> : undefined}
       varianteBoton={principal ? "primario" : "secundario"}

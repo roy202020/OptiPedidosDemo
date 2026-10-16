@@ -10,11 +10,13 @@ import { procesarAviso } from "@/lib/notificaciones";
 import { ESTADOS_INTERNOS } from "@/lib/ordenes/estados";
 import { exigirOptica } from "@/lib/sesion";
 import { crearClienteServidor } from "@/lib/supabase/servidor";
+import { valoresDe } from "@/lib/validacion/comun";
 import {
   erroresOrden,
   esquemaMotivo,
   esquemaObservacion,
   esquemaOrden,
+  esquemaPago,
   leerFormularioOrden,
   ojosParaRpc,
   valoresOrden,
@@ -149,6 +151,44 @@ export async function reintentarAviso(
   const { data: estado, error } = await supabase.rpc("reintentar_notificacion", { p_id: notificacionId });
   if (error) return { error: mensajeDb(error) };
   if (estado === "pendiente") await procesarAviso(supabase, { notificacion_id: notificacionId });
+  revalidatePath(`/panel/ordenes/${ordenId}`);
+  return { listo: true };
+}
+
+/** Registra un pago (adelanto o saldo). La base comprueba que no supere el saldo pendiente. */
+export async function registrarPago(id: string, _previo: EstadoFormulario, datos: FormData): Promise<EstadoFormulario> {
+  const optica = await exigirOptica();
+  const valores = valoresDe(datos);
+  if (!idValido(id)) return { error: "Orden inválida.", valores };
+  const r = esquemaPago.safeParse({ importe: datos.get("importe") ?? "", medio: datos.get("medio") ?? "", fecha: datos.get("fecha") ?? "" });
+  if (!r.success) return { campos: z.flattenError(r.error).fieldErrors, valores };
+
+  const supabase = await crearClienteServidor();
+  const { error } = await supabase.from("orden_pagos").insert({ optica_id: optica.id, orden_id: id, ...r.data });
+  if (error) return { error: mensajeDb(error), valores };
+
+  revalidatePath(`/panel/ordenes/${id}`);
+  return { listo: true };
+}
+
+/** Anula un pago con motivo (los pagos no se editan ni se borran). */
+export async function anularPago(pagoId: string, ordenId: string, _previo: EstadoFormulario, datos: FormData): Promise<EstadoFormulario> {
+  const optica = await exigirOptica();
+  if (!idValido(pagoId) || !idValido(ordenId)) return { error: "Pago inválido." };
+  const m = esquemaMotivo.safeParse({ motivo: datos.get("motivo") ?? "" });
+  if (!m.success) return { campos: z.flattenError(m.error).fieldErrors };
+
+  const supabase = await crearClienteServidor();
+  const { data, error } = await supabase
+    .from("orden_pagos")
+    .update({ motivo_anulacion: m.data.motivo })
+    .eq("id", pagoId)
+    .eq("optica_id", optica.id)
+    .is("anulado_en", null)
+    .select("id");
+  if (error) return { error: mensajeDb(error) };
+  if (!data.length) return { error: "El pago ya no está vigente. Recarga la página." };
+
   revalidatePath(`/panel/ordenes/${ordenId}`);
   return { listo: true };
 }

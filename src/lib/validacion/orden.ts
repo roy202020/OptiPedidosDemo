@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { DISENOS, ORIGENES_MONTURA, PRIORIDADES, TIPOS_TRABAJO, TRATAMIENTOS } from "@/lib/ordenes/estados";
-import { hoyISO, textoOpcional } from "./comun";
+import { MEDIOS_PAGO } from "@/lib/ordenes/pagos";
+import { hoyISO, hoyLimaISO, textoOpcional } from "./comun";
 import { leerNumero } from "./receta";
 
 const claves = <T extends Record<string, string>>(o: T) => Object.keys(o) as [keyof T & string, ...(keyof T & string)[]];
@@ -144,3 +145,15 @@ export const esquemaMotivo = z.object({
 export const esquemaObservacion = z.object({
   texto: z.string().trim().min(1, "Escribe la observación").max(1000, "Máximo 1000 caracteres"),
 });
+
+/** Pago de una orden: importe en soles mayor que cero, medio y fecha (hoy o antes, hora de Lima). */
+export const esquemaPago = z.object({
+  importe: z.preprocess(
+    leerImporte,
+    z.number("Escribe el importe en soles (máximo 2 decimales)").gt(0, "El importe debe ser mayor que cero").max(99_999_999, "El importe es demasiado alto"),
+  ),
+  medio: z.enum(claves(MEDIOS_PAGO), "Elige el medio de pago"),
+  fecha: z.iso.date("Indica la fecha del pago").refine((f) => f <= hoyLimaISO(), "La fecha del pago no puede estar en el futuro"),
+});
+
+export type DatosPago = z.infer<typeof esquemaPago>;

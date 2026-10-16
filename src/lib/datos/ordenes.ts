@@ -7,6 +7,7 @@ import {
   type EstadoComercial,
   type EstadoInterno,
 } from "@/lib/ordenes/estados";
+import type { Pago } from "@/lib/ordenes/pagos";
 import { exigirOptica } from "@/lib/sesion";
 import { crearClienteServidor } from "@/lib/supabase/servidor";
 import { hoyISO } from "@/lib/validacion/comun";
@@ -146,6 +147,7 @@ export type OrdenDetalle = OrdenResumen & {
   ojos: OrdenOjo[];
   historial: { id: string; desde: EstadoInterno | null; hasta: EstadoInterno; usuario_id: string | null; creado_en: string }[];
   observaciones: { id: string; texto: string; creado_por: string; creado_en: string }[];
+  pagos: Pago[];
 };
 
 export async function obtenerOrden(id: string) {
@@ -163,7 +165,8 @@ export async function obtenerOrden(id: string) {
          receta:recetas(id, fecha_examen, profesional, anulada_en),
          ojos:orden_ojos(*),
          historial:orden_historial_estados(id, desde, hasta, usuario_id, creado_en),
-         observaciones:orden_observaciones(id, texto, creado_por, creado_en)`,
+         observaciones:orden_observaciones(id, texto, creado_por, creado_en),
+         pagos:orden_pagos(id, importe, medio, fecha, creado_por, creado_en, anulado_en, anulado_por, motivo_anulacion)`,
       )
       .eq("optica_id", optica.id)
       .eq("id", id)
@@ -177,6 +180,7 @@ export async function obtenerOrden(id: string) {
   o.ojos.sort((a, b) => a.ojo.localeCompare(b.ojo));
   o.historial.sort((a, b) => a.creado_en.localeCompare(b.creado_en));
   o.observaciones.sort((a, b) => b.creado_en.localeCompare(a.creado_en));
+  o.pagos.sort((a, b) => a.fecha.localeCompare(b.fecha) || a.creado_en.localeCompare(b.creado_en));
 
   const correos = new Map(((miembros.data ?? []) as { usuario_id: string; email: string }[]).map((m) => [m.usuario_id, m.email]));
   return { orden: o, usuario: (uid: string | null) => (uid && correos.get(uid)) || "Usuario desconocido" };

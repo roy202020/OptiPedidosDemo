@@ -61,6 +61,7 @@ tests/                   pruebas Vitest (api/, unit/)
 | `20261016200000_notificaciones_whatsapp` | Consentimiento del paciente, tabla `notificaciones`, encolado automático, reintento, reclamo atómico |
 | `20261016300000_administracion_miembros` | `agregar_miembro()` por correo y protección del último propietario |
 | `20261017000000_inventario_lunas` | Productos, variantes por medida exacta, movimientos, reservas, compras masivas, inventario físico, vista de existencias |
+| `20261017100000_orden_pagos` | Tabla `orden_pagos` (adelantos y saldo), control de saldo, anulación con motivo |
 
 Ninguna migración borra tablas, columnas ni datos. La 0004 rellena `confirmada_en` de órdenes ya confirmadas
 desde su historial.
@@ -94,7 +95,18 @@ El mapeo existe en la base (`estado_comercial()`) y en `src/lib/ordenes/estados.
   una devolución.
 - Una meta por óptica y mes (`unique`); no se borran. Desde la app solo se editan metas del mes actual o futuros:
   las de meses cerrados quedan como historial.
-- No hay todavía registro de pagos (adelantos/saldos): la meta se mide por venta confirmada, no por dinero cobrado.
+- La meta se mide por venta confirmada, **no por dinero cobrado**: los pagos no la afectan.
+
+## Pagos de las órdenes
+
+- `orden_pagos` registra cada cobro (adelanto o saldo): importe > 0, medio (`efectivo`, `tarjeta`, `transferencia`,
+  `yape_plin`), fecha de Lima (hoy o antes) y autor fijado por el servidor.
+- **Saldo = (precio − descuento) − pagos vigentes.** La base rechaza un pago que supere el saldo (bloqueando la orden,
+  así dos cobros simultáneos tampoco lo superan) y no deja bajar el importe de una orden por debajo de lo ya pagado.
+- Los pagos no se editan ni se borran: se **anulan con motivo** (el servidor guarda cuándo y quién) y se registra
+  otro si hace falta. Altas y anulaciones quedan en `auditoria`. Cualquier miembro de la óptica cobra y anula.
+- Se cobra desde venta iniciada (adelanto) hasta la entrega; no en órdenes anuladas, cuyos pagos sí se pueden anular
+  como devolución. Al entregar con saldo pendiente, la confirmación lo advierte (no lo impide).
 
 ## Inventario de lunas
 

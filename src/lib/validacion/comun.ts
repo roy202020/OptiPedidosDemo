@@ -3,6 +3,9 @@ import { z } from "zod";
 /** Fecha de hoy en formato AAAA-MM-DD (misma convención que current_date en la base). */
 export const hoyISO = () => new Date().toISOString().slice(0, 10);
 
+/** Fecha de hoy en Lima, AAAA-MM-DD (misma convención que la fecha de los pagos en la base). */
+export const hoyLimaISO = () => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Lima" }).format(new Date());
+
 /** Texto opcional: recorta espacios y convierte "" en null. */
 export const textoOpcional = (max: number) =>
   z.preprocess(
