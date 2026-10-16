@@ -261,7 +261,7 @@ async function Detalle({ params, searchParams }: Props) {
                         textoConfirmar="Anular pago"
                         pendiente="Anulando…"
                       >
-                        <Campo nombre="motivo" etiqueta="Motivo de la anulación" required maxLength={300} />
+                        <Campo id={`motivo-${p.id}`} nombre="motivo" etiqueta="Motivo de la anulación" required maxLength={300} />
                       </Confirmacion>
                     )}
                   </li>
