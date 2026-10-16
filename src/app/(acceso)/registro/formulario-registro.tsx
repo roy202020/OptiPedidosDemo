@@ -2,7 +2,8 @@
 
 import { useActionState } from "react";
 import { Alerta, BotonEnviar, Campo } from "@/components/formulario";
-import { registrarse, type EstadoFormulario } from "../acciones";
+import type { EstadoFormulario } from "@/lib/estado-formulario";
+import { registrarse } from "../acciones";
 
 export function FormularioRegistro() {
   const [estado, accion] = useActionState(registrarse, {} as EstadoFormulario);

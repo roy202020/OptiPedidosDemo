@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Suspense } from "react";
 import { exigirOptica } from "@/lib/sesion";
 
@@ -8,7 +9,7 @@ const ROLES = { propietario: "Propietario", administrador: "Administrador", oper
 
 const MODULOS = [
   { titulo: "Órdenes de trabajo", texto: "Crea pedidos al laboratorio y sigue su estado hasta la entrega." },
-  { titulo: "Pacientes", texto: "Registra pacientes y sus recetas." },
+  { titulo: "Pacientes", texto: "Registra pacientes y sus recetas.", href: "/panel/pacientes" },
   { titulo: "Laboratorios", texto: "Administra los laboratorios con los que trabajas." },
 ];
 
@@ -19,13 +20,27 @@ export default function PaginaPanel() {
         <Bienvenida />
       </Suspense>
       <div className="grid gap-4 sm:grid-cols-3">
-        {MODULOS.map((m) => (
-          <section key={m.titulo} className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
-            <h2 className="font-medium">{m.titulo}</h2>
-            <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{m.texto}</p>
-            <p className="mt-4 text-xs font-medium uppercase tracking-wide text-zinc-400">Próximamente</p>
-          </section>
-        ))}
+        {MODULOS.map((m) => {
+          const contenido = (
+            <>
+              <h2 className="font-medium">{m.titulo}</h2>
+              <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{m.texto}</p>
+              <p className="mt-4 text-xs font-medium uppercase tracking-wide text-zinc-400">
+                {m.href ? <span className="text-sky-700 dark:text-sky-400">Abrir →</span> : "Próximamente"}
+              </p>
+            </>
+          );
+          const clase = "rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900";
+          return m.href ? (
+            <Link key={m.titulo} href={m.href} className={`${clase} transition hover:border-sky-400`}>
+              {contenido}
+            </Link>
+          ) : (
+            <section key={m.titulo} className={clase}>
+              {contenido}
+            </section>
+          );
+        })}
       </div>
     </>
   );

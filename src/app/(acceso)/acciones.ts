@@ -3,14 +3,9 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import type { EstadoFormulario } from "@/lib/estado-formulario";
 import { crearClienteServidor } from "@/lib/supabase/servidor";
 
-export type EstadoFormulario = {
-  error?: string;
-  aviso?: string;
-  campos?: Record<string, string[] | undefined>;
-  valores?: Record<string, string>;
-};
 
 const correo = z.string().trim().toLowerCase().pipe(z.email("Escribe un correo válido"));
 

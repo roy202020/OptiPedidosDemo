@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import type { EstadoFormulario } from "@/app/(acceso)/acciones";
+import type { EstadoFormulario } from "@/lib/estado-formulario";
 import { obtenerOpticaActual, obtenerUsuario } from "@/lib/sesion";
 import { crearClienteServidor } from "@/lib/supabase/servidor";
 

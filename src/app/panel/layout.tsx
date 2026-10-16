@@ -4,7 +4,10 @@ import { cerrarSesion } from "@/app/(acceso)/acciones";
 import { exigirOptica, obtenerUsuario } from "@/lib/sesion";
 
 // Cada módulo nuevo (órdenes, pacientes, laboratorios) agrega aquí su enlace.
-const SECCIONES = [{ href: "/panel", texto: "Inicio" }];
+const SECCIONES = [
+  { href: "/panel", texto: "Inicio" },
+  { href: "/panel/pacientes", texto: "Pacientes" },
+];
 
 export default function LayoutPanel({ children }: { children: React.ReactNode }) {
   return (

@@ -37,6 +37,57 @@ export function Campo({ nombre, etiqueta, tipo = "text", errores, ayuda, ...rest
   );
 }
 
+const claseControl =
+  "rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-900 outline-none transition focus:border-sky-600 focus:ring-2 focus:ring-sky-600/20 aria-invalid:border-red-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100";
+
+type SelectorProps = {
+  nombre: string;
+  etiqueta: string;
+  opciones: readonly (string | { valor: string; texto: string })[];
+  errores?: string[];
+} & Omit<React.SelectHTMLAttributes<HTMLSelectElement>, "name">;
+
+export function Selector({ nombre, etiqueta, opciones, errores, ...resto }: SelectorProps) {
+  const conError = Boolean(errores?.length);
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={nombre} className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
+        {etiqueta}
+      </label>
+      <select id={nombre} name={nombre} aria-invalid={conError || undefined} className={`h-10 ${claseControl}`} {...resto}>
+        {opciones.map((o) => {
+          const { valor, texto } = typeof o === "string" ? { valor: o, texto: o } : o;
+          return (
+            <option key={valor} value={valor}>
+              {texto}
+            </option>
+          );
+        })}
+      </select>
+      {conError && <p className="text-xs text-red-600 dark:text-red-400">{errores![0]}</p>}
+    </div>
+  );
+}
+
+type AreaTextoProps = {
+  nombre: string;
+  etiqueta: string;
+  errores?: string[];
+} & Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, "name">;
+
+export function AreaTexto({ nombre, etiqueta, errores, ...resto }: AreaTextoProps) {
+  const conError = Boolean(errores?.length);
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={nombre} className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
+        {etiqueta}
+      </label>
+      <textarea id={nombre} name={nombre} rows={3} aria-invalid={conError || undefined} className={`py-2 ${claseControl}`} {...resto} />
+      {conError && <p className="text-xs text-red-600 dark:text-red-400">{errores![0]}</p>}
+    </div>
+  );
+}
+
 export function BotonEnviar({ children, pendiente }: { children: React.ReactNode; pendiente: string }) {
   const { pending } = useFormStatus();
   return (

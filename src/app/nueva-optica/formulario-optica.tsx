@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { Alerta, BotonEnviar, Campo } from "@/components/formulario";
-import type { EstadoFormulario } from "@/app/(acceso)/acciones";
+import type { EstadoFormulario } from "@/lib/estado-formulario";
 import { crearOptica } from "./acciones";
 
 export function FormularioOptica() {
