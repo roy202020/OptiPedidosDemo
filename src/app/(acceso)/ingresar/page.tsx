@@ -7,12 +7,12 @@ export const metadata: Metadata = { title: "Ingresar" };
 export default function PaginaIngresar() {
   return (
     <>
-      <h1 className="mb-1 text-lg font-semibold">Ingresar</h1>
-      <p className="mb-6 text-sm text-zinc-600 dark:text-zinc-400">Accede a los pedidos de tu óptica.</p>
+      <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Ingresar</h1>
+      <p className="mt-1 mb-8 text-sm text-slate-500">Accede a los pedidos de tu óptica.</p>
       <FormularioIngreso />
-      <p className="mt-6 text-center text-sm text-zinc-600 dark:text-zinc-400">
+      <p className="mt-8 text-center text-sm text-slate-500">
         ¿No tienes cuenta?{" "}
-        <Link href="/registro" className="font-medium text-sky-700 hover:underline dark:text-sky-400">
+        <Link href="/registro" className="font-medium text-marca-700 hover:underline">
           Crear cuenta
         </Link>
       </p>

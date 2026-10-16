@@ -149,3 +149,142 @@ describe("usuario de la óptica B intentando acceder a la óptica A", () => {
     expect(data!.every((r) => r.optica_id === opticaB)).toBe(true);
   });
 });
+
+describe("módulos de órdenes, ventas, avisos y miembros", () => {
+  let ordenA: string;
+  let c: SupabaseClient; // operador de A
+  const correoC = `c-${sufijo}@prueba.test`;
+
+  beforeAll(async () => {
+    const lab = await a.from("laboratorios").insert({ optica_id: opticaA, nombre: "Lab Ficticio A" }).select("id").single();
+    const receta = await a
+      .from("recetas")
+      .insert({ optica_id: opticaA, paciente_id: pacienteA, od_esfera: -1.25 })
+      .select("id")
+      .single();
+    expect(lab.error).toBeNull();
+    expect(receta.error).toBeNull();
+    const orden = await a.rpc("crear_orden", {
+      p_paciente: pacienteA,
+      p_receta: receta.data!.id,
+      p_laboratorio: lab.data!.id,
+      p_precio: 300,
+    });
+    expect(orden.error).toBeNull();
+    ordenA = orden.data as string;
+    expect((await a.from("ordenes").update({ estado: "enviada" }).eq("id", ordenA)).error).toBeNull();
+    expect((await a.from("ordenes").update({ estado: "recibida_optica" }).eq("id", ordenA)).error).toBeNull();
+    const periodo = `${new Date().toISOString().slice(0, 7)}-01`;
+    expect((await a.from("metas_ventas").insert({ optica_id: opticaA, periodo, importe_objetivo: 1000 })).error).toBeNull();
+
+    c = nuevoCliente();
+    const registro = await c.auth.signUp({ email: correoC, password: `Clave-de-prueba-${sufijo}` });
+    expect(registro.error).toBeNull();
+    const alta = await a.rpc("agregar_miembro", { p_optica: opticaA, p_email: correoC.toUpperCase(), p_rol: "operador" });
+    expect(alta.error).toBeNull();
+  });
+
+  describe("óptica B", () => {
+    it.each(["ordenes", "laboratorios", "metas_ventas", "notificaciones", "orden_ojos", "orden_historial_estados"])(
+      "no ve %s de A",
+      async (tabla) => {
+        const { data, error } = await b.from(tabla).select("optica_id").eq("optica_id", opticaA);
+        expect(error).toBeNull();
+        expect(data).toEqual([]);
+      },
+    );
+
+    it("no ve las ventas de A", async () => {
+      const { error } = await b.rpc("ventas_mensuales", { p_optica: opticaA });
+      expect(error?.code).toBe("42501");
+    });
+
+    it("no ve los miembros de A", async () => {
+      const { data } = await b.rpc("miembros_optica", { p_optica: opticaA });
+      expect(data).toEqual([]);
+    });
+
+    it("no se agrega a la óptica A", async () => {
+      const { error } = await b.rpc("agregar_miembro", { p_optica: opticaA, p_email: `b-${sufijo}@prueba.test`, p_rol: "propietario" });
+      expect(error?.code).toBe("42501");
+    });
+
+    it("no cambia el estado de una orden de A", async () => {
+      const { data } = await b.from("ordenes").update({ estado: "entregada" }).eq("id", ordenA).select();
+      expect(data).toEqual([]);
+    });
+
+    it("no reintenta ni marca avisos de A", async () => {
+      const { data: aviso } = await a.from("notificaciones").select("id").eq("orden_id", ordenA).single();
+      expect((await b.rpc("reintentar_notificacion", { p_id: aviso!.id })).error).not.toBeNull();
+      expect((await b.rpc("registrar_envio", { p_id: aviso!.id, p_ok: true, p_mensaje_id: "x" })).error).not.toBeNull();
+    });
+  });
+
+  describe("operador de A", () => {
+    it("trabaja con las órdenes de su óptica", async () => {
+      const { data } = await c.from("ordenes").select("id, precio").eq("id", ordenA);
+      expect(data).toHaveLength(1);
+    });
+
+    it("no ve metas ni el informe de ventas", async () => {
+      expect((await c.from("metas_ventas").select("id")).data).toEqual([]);
+      expect((await c.rpc("ventas_mensuales", { p_optica: opticaA })).error?.code).toBe("42501");
+    });
+
+    it("no edita los datos de la óptica", async () => {
+      const { data } = await c.from("opticas").update({ nombre: "Cambiada" }).eq("id", opticaA).select();
+      expect(data).toEqual([]);
+    });
+
+    it("no se cambia el rol ni agrega miembros", async () => {
+      const { data: sesion } = await c.auth.getUser();
+      const { data } = await c.from("miembros").update({ rol: "propietario" }).eq("usuario_id", sesion.user!.id).select();
+      expect(data).toEqual([]);
+      expect((await c.rpc("agregar_miembro", { p_optica: opticaA, p_email: correoC, p_rol: "propietario" })).error?.code).toBe("42501");
+    });
+  });
+});
+
+describe("inventario de lunas", () => {
+  let varianteA: string;
+
+  beforeAll(async () => {
+    const producto = await a.from("lunas_productos").insert({ optica_id: opticaA, nombre: `Resina ficticia ${sufijo}` }).select("id").single();
+    expect(producto.error).toBeNull();
+    const compra = await a.rpc("registrar_compra", {
+      p_optica: opticaA,
+      p_proveedor: "Proveedor ficticio",
+      p_documento: "",
+      p_fecha: new Date().toISOString().slice(0, 10),
+      p_notas: "",
+      p_lineas: [
+        { producto_id: producto.data!.id, esfera: -2, cilindro: 0, cantidad: 24 },
+        { producto_id: producto.data!.id, esfera: -2.5, cilindro: 0, cantidad: 16 },
+      ],
+    });
+    expect(compra.error).toBeNull();
+    const v = await a.from("lunas_existencias").select("id, stock").eq("esfera", -2).eq("producto_id", producto.data!.id).single();
+    expect(v.data!.stock).toBe(24);
+    varianteA = v.data!.id;
+  });
+
+  it("B no ve el inventario de A", async () => {
+    for (const tabla of ["lunas_productos", "lunas_variantes", "lunas_existencias", "inventario_movimientos", "inventario_operaciones"]) {
+      const { data } = await b.from(tabla).select("optica_id").eq("optica_id", opticaA);
+      expect(data, tabla).toEqual([]);
+    }
+  });
+
+  it("B no mueve el stock de A", async () => {
+    const { error } = await b.from("inventario_movimientos").insert({ optica_id: opticaA, variante_id: varianteA, tipo: "venta", cantidad: -1 });
+    expect(error).not.toBeNull();
+    const { data } = await a.from("lunas_variantes").select("stock").eq("id", varianteA).single();
+    expect(data!.stock).toBe(24);
+  });
+
+  it("nadie edita el stock directamente por la API", async () => {
+    const { error } = await a.from("lunas_variantes").update({ stock: 999 }).eq("id", varianteA);
+    expect(error?.code).toBe("42501");
+  });
+});

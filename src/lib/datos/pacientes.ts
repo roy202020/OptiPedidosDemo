@@ -18,6 +18,8 @@ export type Paciente = {
   telefono: string | null;
   email: string | null;
   notas: string | null;
+  acepta_whatsapp: boolean;
+  whatsapp_consentimiento_en: string | null;
   archivado_en: string | null;
   creado_en: string;
 };
@@ -45,17 +47,22 @@ const limpiarBusqueda = (q: string) =>
     .filter(Boolean)
     .slice(0, 5);
 
-export async function listarPacientes({ q = "", archivados = false } = {}) {
+export const PACIENTES_POR_PAGINA = 20;
+
+export async function listarPacientes({ q = "", archivados = false, pagina = 1 } = {}) {
   const optica = await exigirOptica();
   const supabase = await crearClienteServidor();
 
   let consulta = supabase
     .from("pacientes")
-    .select("id, nombres, apellidos, tipo_documento, numero_documento, telefono, fecha_nacimiento, archivado_en")
+    .select("id, nombres, apellidos, tipo_documento, numero_documento, telefono, fecha_nacimiento, archivado_en", {
+      count: "exact",
+    })
     .eq("optica_id", optica.id)
     .order("apellidos")
     .order("nombres")
-    .limit(100);
+    .order("id")
+    .range((pagina - 1) * PACIENTES_POR_PAGINA, pagina * PACIENTES_POR_PAGINA - 1);
 
   consulta = archivados ? consulta.not("archivado_en", "is", null) : consulta.is("archivado_en", null);
 
@@ -66,12 +73,17 @@ export async function listarPacientes({ q = "", archivados = false } = {}) {
     );
   }
 
-  const { data, error } = await consulta;
+  const { data, error, count } = await consulta;
+  // Página fuera de rango (por ejemplo, tras archivar): PostgREST responde 416.
+  if (error?.code === "PGRST103") return { pacientes: [], total: count ?? 0 };
   if (error) throw new Error(`No se pudieron leer los pacientes: ${error.message}`);
-  return data as Pick<
-    Paciente,
-    "id" | "nombres" | "apellidos" | "tipo_documento" | "numero_documento" | "telefono" | "fecha_nacimiento" | "archivado_en"
-  >[];
+  return {
+    pacientes: data as Pick<
+      Paciente,
+      "id" | "nombres" | "apellidos" | "tipo_documento" | "numero_documento" | "telefono" | "fecha_nacimiento" | "archivado_en"
+    >[],
+    total: count ?? 0,
+  };
 }
 
 export async function obtenerPaciente(id: string): Promise<Paciente> {

@@ -1,6 +1,42 @@
 "use client";
 
+import type { LucideIcon } from "lucide-react";
+import { CircleAlert, CircleCheck, Info, LoaderCircle, X } from "lucide-react";
+import { useActionState, useEffect, useId, useRef } from "react";
 import { useFormStatus } from "react-dom";
+import type { EstadoFormulario } from "@/lib/estado-formulario";
+import { Boton, claseBoton, claseControl, type VarianteBoton } from "./ui";
+
+const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
+
+function Etiqueta({ htmlFor, children, requerido }: { htmlFor: string; children: React.ReactNode; requerido?: boolean }) {
+  return (
+    <label htmlFor={htmlFor} className="text-sm font-medium text-slate-700">
+      {children}
+      {requerido && (
+        <span aria-hidden className="ml-0.5 text-red-600">
+          *
+        </span>
+      )}
+    </label>
+  );
+}
+
+function Ayuda({ id, errores, ayuda }: { id: string; errores?: string[]; ayuda?: string }) {
+  if (errores?.length) {
+    return (
+      <p id={id} className="flex items-center gap-1 text-xs text-red-600">
+        <CircleAlert aria-hidden className="size-3.5" />
+        {errores[0]}
+      </p>
+    );
+  }
+  return ayuda ? (
+    <p id={id} className="text-xs text-slate-500">
+      {ayuda}
+    </p>
+  ) : null;
+}
 
 type CampoProps = {
   nombre: string;
@@ -10,51 +46,53 @@ type CampoProps = {
   ayuda?: string;
 } & Omit<React.InputHTMLAttributes<HTMLInputElement>, "name" | "type">;
 
-export function Campo({ nombre, etiqueta, tipo = "text", errores, ayuda, ...resto }: CampoProps) {
-  const idError = `${nombre}-error`;
+export function Campo({ nombre, etiqueta, tipo = "text", errores, ayuda, className, id, ...resto }: CampoProps) {
+  const idCampo = id ?? nombre;
+  const idAyuda = `${idCampo}-ayuda`;
   const conError = Boolean(errores?.length);
   return (
-    <div className="flex flex-col gap-1.5">
-      <label htmlFor={nombre} className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
+    <div className={cx("flex flex-col gap-1.5", className)}>
+      <Etiqueta htmlFor={idCampo} requerido={resto.required}>
         {etiqueta}
-      </label>
+      </Etiqueta>
       <input
-        id={nombre}
+        id={idCampo}
         name={nombre}
         type={tipo}
         aria-invalid={conError || undefined}
-        aria-describedby={conError ? idError : undefined}
-        className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-900 outline-none transition focus:border-sky-600 focus:ring-2 focus:ring-sky-600/20 aria-invalid:border-red-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+        aria-describedby={conError || ayuda ? idAyuda : undefined}
+        className={cx(claseControl, "h-10")}
         {...resto}
       />
-      {ayuda && !conError && <p className="text-xs text-zinc-500">{ayuda}</p>}
-      {conError && (
-        <p id={idError} className="text-xs text-red-600 dark:text-red-400">
-          {errores![0]}
-        </p>
-      )}
+      <Ayuda id={idAyuda} errores={errores} ayuda={ayuda} />
     </div>
   );
 }
-
-const claseControl =
-  "rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-900 outline-none transition focus:border-sky-600 focus:ring-2 focus:ring-sky-600/20 aria-invalid:border-red-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100";
 
 type SelectorProps = {
   nombre: string;
   etiqueta: string;
   opciones: readonly (string | { valor: string; texto: string })[];
   errores?: string[];
+  ayuda?: string;
 } & Omit<React.SelectHTMLAttributes<HTMLSelectElement>, "name">;
 
-export function Selector({ nombre, etiqueta, opciones, errores, ...resto }: SelectorProps) {
+export function Selector({ nombre, etiqueta, opciones, errores, ayuda, className, ...resto }: SelectorProps) {
+  const idAyuda = `${nombre}-ayuda`;
   const conError = Boolean(errores?.length);
   return (
-    <div className="flex flex-col gap-1.5">
-      <label htmlFor={nombre} className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
+    <div className={cx("flex flex-col gap-1.5", className)}>
+      <Etiqueta htmlFor={nombre} requerido={resto.required}>
         {etiqueta}
-      </label>
-      <select id={nombre} name={nombre} aria-invalid={conError || undefined} className={`h-10 ${claseControl}`} {...resto}>
+      </Etiqueta>
+      <select
+        id={nombre}
+        name={nombre}
+        aria-invalid={conError || undefined}
+        aria-describedby={conError || ayuda ? idAyuda : undefined}
+        className={cx(claseControl, "h-10")}
+        {...resto}
+      >
         {opciones.map((o) => {
           const { valor, texto } = typeof o === "string" ? { valor: o, texto: o } : o;
           return (
@@ -64,7 +102,7 @@ export function Selector({ nombre, etiqueta, opciones, errores, ...resto }: Sele
           );
         })}
       </select>
-      {conError && <p className="text-xs text-red-600 dark:text-red-400">{errores![0]}</p>}
+      <Ayuda id={idAyuda} errores={errores} ayuda={ayuda} />
     </div>
   );
 }
@@ -73,42 +111,178 @@ type AreaTextoProps = {
   nombre: string;
   etiqueta: string;
   errores?: string[];
+  ayuda?: string;
 } & Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, "name">;
 
-export function AreaTexto({ nombre, etiqueta, errores, ...resto }: AreaTextoProps) {
+export function AreaTexto({ nombre, etiqueta, errores, ayuda, className, ...resto }: AreaTextoProps) {
+  const idAyuda = `${nombre}-ayuda`;
   const conError = Boolean(errores?.length);
   return (
-    <div className="flex flex-col gap-1.5">
-      <label htmlFor={nombre} className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
+    <div className={cx("flex flex-col gap-1.5", className)}>
+      <Etiqueta htmlFor={nombre} requerido={resto.required}>
         {etiqueta}
-      </label>
-      <textarea id={nombre} name={nombre} rows={3} aria-invalid={conError || undefined} className={`py-2 ${claseControl}`} {...resto} />
-      {conError && <p className="text-xs text-red-600 dark:text-red-400">{errores![0]}</p>}
+      </Etiqueta>
+      <textarea
+        id={nombre}
+        name={nombre}
+        rows={3}
+        aria-invalid={conError || undefined}
+        aria-describedby={conError || ayuda ? idAyuda : undefined}
+        className={cx(claseControl, "py-2")}
+        {...resto}
+      />
+      <Ayuda id={idAyuda} errores={errores} ayuda={ayuda} />
     </div>
   );
 }
 
-export function BotonEnviar({ children, pendiente }: { children: React.ReactNode; pendiente: string }) {
+/** Grupo de campos con título, para formularios largos. */
+export function Seccion({ titulo, descripcion, children }: { titulo: string; descripcion?: string; children: React.ReactNode }) {
+  return (
+    <fieldset className="grid gap-x-8 gap-y-4 border-t border-slate-100 pt-6 first-of-type:border-t-0 first-of-type:pt-0 lg:grid-cols-[220px_1fr]">
+      <legend className="sr-only">{titulo}</legend>
+      <div aria-hidden>
+        <p className="text-sm font-semibold text-slate-900">{titulo}</p>
+        {descripcion && <p className="mt-1 text-xs text-slate-500">{descripcion}</p>}
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">{children}</div>
+    </fieldset>
+  );
+}
+
+export function BotonEnviar({
+  children,
+  pendiente,
+  variante = "primario",
+  icono: Icono,
+  className,
+}: {
+  children: React.ReactNode;
+  pendiente: string;
+  variante?: VarianteBoton;
+  icono?: LucideIcon;
+  className?: string;
+}) {
   const { pending } = useFormStatus();
   return (
-    <button
-      type="submit"
-      disabled={pending}
-      className="h-10 rounded-md bg-sky-700 px-4 text-sm font-medium text-white transition hover:bg-sky-800 disabled:cursor-wait disabled:opacity-70"
-    >
+    <button type="submit" disabled={pending} aria-busy={pending} className={cx(claseBoton(variante), className)}>
+      {pending ? <LoaderCircle aria-hidden className="size-4 animate-spin" /> : Icono && <Icono aria-hidden className="size-4" />}
       {pending ? pendiente : children}
     </button>
   );
 }
 
-export function Alerta({ tipo, children }: { tipo: "error" | "aviso"; children: React.ReactNode }) {
-  const estilos =
-    tipo === "error"
-      ? "border-red-200 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200"
-      : "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200";
+const ALERTAS = {
+  error: { clase: "border-red-200 bg-red-50 text-red-800", icono: CircleAlert, rol: "alert" },
+  exito: { clase: "border-emerald-200 bg-emerald-50 text-emerald-800", icono: CircleCheck, rol: "status" },
+  info: { clase: "border-marca-200 bg-marca-50 text-marca-800", icono: Info, rol: "status" },
+  aviso: { clase: "border-amber-200 bg-amber-50 text-amber-900", icono: Info, rol: "status" },
+} as const;
+
+export function Alerta({ tipo, children }: { tipo: keyof typeof ALERTAS; children: React.ReactNode }) {
+  const { clase, icono: Icono, rol } = ALERTAS[tipo];
   return (
-    <p role={tipo === "error" ? "alert" : "status"} className={`rounded-md border px-3 py-2 text-sm ${estilos}`}>
+    <div role={rol} className={cx("flex items-start gap-2 rounded-lg border px-3 py-2.5 text-sm", clase)}>
+      <Icono aria-hidden className="mt-0.5 size-4 shrink-0" />
+      <div>{children}</div>
+    </div>
+  );
+}
+
+type Accion = (previo: EstadoFormulario, datos: FormData) => Promise<EstadoFormulario>;
+
+/**
+ * Botón que abre un diálogo modal de confirmación y ejecuta una Server Action.
+ * `children` permite pedir datos adicionales (por ejemplo, un motivo).
+ * Se cierra solo cuando la acción termina sin errores.
+ */
+export function Confirmacion({
+  accion,
+  titulo,
+  descripcion,
+  textoBoton,
+  iconoBoton,
+  varianteBoton = "secundario",
+  tamanoBoton = "md",
+  textoConfirmar,
+  pendiente = "Procesando…",
+  variante = "peligro",
+  children,
+}: {
+  accion: Accion;
+  titulo: string;
+  descripcion?: React.ReactNode;
+  textoBoton: string;
+  /** Icono ya renderizado (p. ej. <Archive />): los componentes no pueden pasar del servidor al cliente. */
+  iconoBoton?: React.ReactNode;
+  varianteBoton?: VarianteBoton;
+  tamanoBoton?: "sm" | "md";
+  textoConfirmar: string;
+  pendiente?: string;
+  variante?: VarianteBoton;
+  children?: React.ReactNode;
+}) {
+  const dialogo = useRef<HTMLDialogElement>(null);
+  const idTitulo = useId();
+  const [estado, enviar] = useActionState(accion, {} as EstadoFormulario);
+
+  useEffect(() => {
+    if (estado.listo) dialogo.current?.close();
+  }, [estado]);
+
+  return (
+    <>
+      <Boton variante={varianteBoton} tamano={tamanoBoton} onClick={() => dialogo.current?.showModal()}>
+        {iconoBoton && <span aria-hidden className="[&>svg]:size-4">{iconoBoton}</span>}
+        {textoBoton}
+      </Boton>
+      <dialog
+        ref={dialogo}
+        aria-labelledby={idTitulo}
+        className="m-auto w-[calc(100%-2rem)] max-w-md rounded-xl border border-slate-200 bg-white p-0 text-slate-900 shadow-flotante"
+      >
+        <form action={enviar} className="flex flex-col gap-4 p-5" noValidate>
+          <div className="flex items-start justify-between gap-4">
+            <h2 id={idTitulo} className="text-base font-semibold">
+              {titulo}
+            </h2>
+            <button
+              type="button"
+              aria-label="Cerrar"
+              onClick={() => dialogo.current?.close()}
+              className="-m-1 rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+            >
+              <X aria-hidden className="size-4" />
+            </button>
+          </div>
+          {descripcion && <div className="text-sm text-slate-600">{descripcion}</div>}
+          {estado.error && <Alerta tipo="error">{estado.error}</Alerta>}
+          {children && <CamposConErrores errores={estado.campos}>{children}</CamposConErrores>}
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Boton onClick={() => dialogo.current?.close()}>Cancelar</Boton>
+            <BotonEnviar variante={variante} pendiente={pendiente}>
+              {textoConfirmar}
+            </BotonEnviar>
+          </div>
+        </form>
+      </dialog>
+    </>
+  );
+}
+
+/** Muestra debajo de los campos del diálogo los errores de validación devueltos. */
+function CamposConErrores({ errores, children }: { errores?: Record<string, string[] | undefined>; children: React.ReactNode }) {
+  const mensajes = Object.values(errores ?? {}).flatMap((m) => m ?? []);
+  return (
+    <div className="flex flex-col gap-3">
       {children}
-    </p>
+      {mensajes.length > 0 && (
+        <ul className="text-xs text-red-600">
+          {mensajes.map((m) => (
+            <li key={m}>{m}</li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }

@@ -11,8 +11,8 @@ export const metadata: Metadata = { title: "Nuevo paciente" };
 export default function PaginaNuevoPaciente() {
   return (
     <>
-      <Encabezado titulo="Nuevo paciente" volver={{ href: "/panel/pacientes", texto: "Pacientes" }} />
-      <Tarjeta className="max-w-2xl">
+      <Encabezado titulo="Nuevo paciente" descripcion="Los campos con * son obligatorios." volver={{ href: "/panel/pacientes", texto: "Pacientes" }} />
+      <Tarjeta className="max-w-4xl">
         <Suspense fallback={<Cargando />}>
           <Formulario />
         </Suspense>
@@ -23,5 +23,5 @@ export default function PaginaNuevoPaciente() {
 
 async function Formulario() {
   await exigirOptica();
-  return <FormularioPaciente accion={crearPaciente} textoBoton="Registrar paciente" hoy={hoyISO()} />;
+  return <FormularioPaciente accion={crearPaciente} textoBoton="Registrar paciente" cancelar="/panel/pacientes" hoy={hoyISO()} />;
 }

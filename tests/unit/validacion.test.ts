@@ -102,6 +102,11 @@ describe("esquemaPaciente", () => {
     expect(esquemaPaciente.safeParse({ ...base, tipo_documento: tipo, numero_documento: numero }).success).toBe(valido);
   });
 
+  it("lee el consentimiento de WhatsApp del checkbox (marcado = 'on', ausente = no)", () => {
+    expect(esquemaPaciente.safeParse({ ...base, acepta_whatsapp: "on" }).data?.acepta_whatsapp).toBe(true);
+    expect(esquemaPaciente.safeParse(base).data?.acepta_whatsapp).toBe(false);
+  });
+
   it("rechaza correo inválido y nacimiento futuro", () => {
     const e = errores(esquemaPaciente.safeParse({ ...base, email: "no-correo", fecha_nacimiento: "2999-01-01" }));
     expect(e.email).toBeDefined();

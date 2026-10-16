@@ -1,26 +1,56 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/*
+ * Sistema de diseño de OptiPedidos
+ * - Tema claro único. Las clases dark: solo se activan con la clase .dark (no por el sistema operativo),
+ *   para que el aspecto sea siempre el mismo.
+ * - "marca": azul oscuro principal. Neutros: escala slate de Tailwind.
+ */
+@custom-variant dark (&:where(.dark, .dark *));
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@theme {
+  --color-marca-50: #eef3fb;
+  --color-marca-100: #d9e3f5;
+  --color-marca-200: #b3c7ea;
+  --color-marca-300: #84a3d9;
+  --color-marca-400: #5479c2;
+  --color-marca-500: #345aa6;
+  --color-marca-600: #264789;
+  --color-marca-700: #1e3a70;
+  --color-marca-800: #172d57;
+  --color-marca-900: #10203f;
+  --color-marca-950: #0a1428;
+
+  --color-fondo: #f5f6f8;
+
+  --shadow-tarjeta: 0 1px 2px rgb(16 32 63 / 0.04), 0 1px 3px rgb(16 32 63 / 0.06);
+  --shadow-flotante: 0 10px 30px -10px rgb(16 32 63 / 0.25), 0 4px 10px -4px rgb(16 32 63 / 0.1);
+}
+
+@layer base {
+  html {
+    color-scheme: light;
   }
-}
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  body {
+    background: var(--color-fondo);
+    color: var(--color-slate-900);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-marca-500);
+    outline-offset: 2px;
+  }
+
+  /* Fondo del diálogo modal nativo */
+  dialog::backdrop {
+    background: rgb(10 20 40 / 0.45);
+  }
 }

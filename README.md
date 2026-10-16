@@ -1,36 +1,193 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# OptiPedidos
 
-## Getting Started
+Sistema de gestión para ópticas: pacientes, recetas, órdenes de trabajo al laboratorio, laboratorios,
+ventas con metas mensuales y aviso por WhatsApp cuando los lentes están listos.
 
-First, run the development server:
+- **Next.js 16** (App Router, Server Actions, Cache Components) + **React 19** + **Tailwind CSS 4**
+- **Supabase**: Auth, PostgreSQL con RLS, Edge Functions
+- Multiempresa: cada óptica ve solo sus datos; la base de datos lo garantiza con RLS.
+
+## Puesta en marcha local
+
+Requisitos: Node.js 20+, Docker Desktop abierto.
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npx supabase start          # base local + Auth + Edge Functions (aplica las migraciones)
+npm run dev                 # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+`.env.local` necesita `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY` (los muestra `npx supabase status`).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Migraciones nuevas sobre una base local con datos: `npx supabase migration up --local` (no borra datos).
+`npx supabase db reset` reconstruye la base desde cero **y borra todos los datos locales**.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Pruebas
 
-## Learn More
+```bash
+npm test            # todo: base de datos + API + unitarias
+npm run test:db     # pgTAP: RLS, reglas de negocio, órdenes, ventas, avisos, administración, inventario
+npm run test:api    # Vitest: aislamiento por la API REST real (requiere Supabase local) y unitarias
+```
 
-To learn more about Next.js, take a look at the following resources:
+Las pruebas usan datos ficticios: pgTAP revierte todo; las de API crean usuarios `@prueba.test`.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Estructura
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```
+src/app/(acceso)/        ingresar, registro (Server Actions de Auth)
+src/app/panel/           app autenticada: panel, órdenes, pacientes, inventario, laboratorios, ventas, administración
+src/components/          sistema de diseño (ui.tsx: presentación; formulario.tsx: controles y diálogos)
+src/lib/sesion.ts        usuario, óptica actual, exigirOptica(), exigirPermiso()
+src/lib/permisos.ts      matriz de permisos por rol (módulo puro, también usado en el cliente)
+src/lib/datos/           lecturas por módulo (siempre filtradas por la óptica actual + RLS)
+src/lib/validacion/      esquemas zod alineados con las restricciones de la base
+src/lib/ordenes/         estados de las órdenes y su mapeo comercial
+src/proxy.ts             renueva la sesión y redirige rutas privadas (Next 16: "proxy" = middleware)
+supabase/migrations/     esquema versionado (ver abajo)
+supabase/functions/      Edge Function enviar-whatsapp (Deno)
+supabase/tests/database/ pruebas pgTAP
+tests/                   pruebas Vitest (api/, unit/)
+```
 
-## Deploy on Vercel
+## Migraciones
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+| Versión | Contenido |
+|---|---|
+| `20261014185231_esquema_inicial` | Ópticas, miembros, pacientes, laboratorios, recetas, órdenes, historial, observaciones, auditoría, RLS |
+| `20261014200000_correcciones_integridad` | Autor fijado por el servidor, receta reemplazada en la misma óptica, anular receta no bloquea órdenes |
+| `20261016000000_ordenes_flujo_comercial` | Estado comercial, atajos a "listo para entrega", `crear_orden()` y `actualizar_orden_borrador()` atómicas, `miembros_optica()`, índices |
+| `20261016100000_ventas_metas` | Precio, descuento y fecha de confirmación en órdenes; tabla `metas_ventas`; `ventas_mensuales()` y `ventas_del_dia()` |
+| `20261016200000_notificaciones_whatsapp` | Consentimiento del paciente, tabla `notificaciones`, encolado automático, reintento, reclamo atómico |
+| `20261016300000_administracion_miembros` | `agregar_miembro()` por correo y protección del último propietario |
+| `20261017000000_inventario_lunas` | Productos, variantes por medida exacta, movimientos, reservas, compras masivas, inventario físico, vista de existencias |
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Ninguna migración borra tablas, columnas ni datos. La 0004 rellena `confirmada_en` de órdenes ya confirmadas
+desde su historial.
+
+## Órdenes de trabajo
+
+El enum `estado_orden` no cambió. La interfaz muestra el **estado comercial**; el interno se conserva como detalle.
+El mapeo existe en la base (`estado_comercial()`) y en `src/lib/ordenes/estados.ts`.
+
+| Estado comercial | Estados internos |
+|---|---|
+| Venta iniciada | `borrador` |
+| En el laboratorio | `enviada`, `recibida_lab`, `en_proceso`, `lista` |
+| Listo para entrega | `recibida_optica` (dispara el aviso por WhatsApp) |
+| Entregado | `entregada` |
+| Anulado | `anulada` (con motivo obligatorio) |
+
+- Las transiciones válidas están en la tabla `transiciones_estado`; la base rechaza cualquier otra y registra cada
+  cambio en `orden_historial_estados` con el usuario. La 0003 agregó atajos de cualquier subestado de laboratorio a
+  "Listo para entrega".
+- Solo las órdenes en venta iniciada se editan (cabecera, lentes e importes). La graduación se copia de la receta al
+  crear la orden y no cambia.
+- **Atrasada**: la fecha prometida ya pasó y el trabajo aún no llega a la óptica (venta iniciada o en laboratorio).
+  Las listas para entrega no cuentan como atrasadas: esperan al paciente.
+
+## Ventas y metas
+
+- Importes en **soles (PEN), IGV incluido**.
+- **Venta = precio − descuento** de órdenes **confirmadas** (salieron de venta iniciada) y **no anuladas**, contadas en
+  el **mes de confirmación** (hora de Lima). Si una orden vuelve a venta iniciada deja de contar; anularla equivale a
+  una devolución.
+- Una meta por óptica y mes (`unique`); no se borran. Desde la app solo se editan metas del mes actual o futuros:
+  las de meses cerrados quedan como historial.
+- No hay todavía registro de pagos (adelantos/saldos): la meta se mide por venta confirmada, no por dinero cobrado.
+
+## Inventario de lunas
+
+Stock por **combinación exacta** de medida, en **lunas sueltas** (la interfaz muestra también el equivalente en pares).
+
+| Tabla | Contenido |
+|---|---|
+| `lunas_productos` | Tipo de luna sin medida: nombre, tipo, material, índice, tratamiento y color del AR, visión (monofocal, bifocal, progresivo, ocupacional), superficie, control por lado, proveedor, costo y mínimo por defecto |
+| `lunas_variantes` | Una fila por medida exacta (`unique nulls not distinct` de producto + esfera + cilindro + eje + adición + lado), con `stock`, `reservado`, `stock_minimo` y `ubicacion` |
+| `inventario_operaciones` | Cabecera de compras, inventarios físicos y ajustes (proveedor, documento, fecha, responsable) |
+| `inventario_movimientos` | Registro inmutable de entradas y salidas con stock anterior y resultante, motivo, lote, costo y usuario |
+| `inventario_reservas` | Lunas apartadas para el OD o el OI de una orden |
+| `lunas_existencias` (vista) | Existencias con `disponible = stock − reservado` y estado (`ok`, `bajo`, `agotado`) |
+
+Reglas, todas aplicadas en la base:
+
+- El stock **solo cambia con movimientos**: un trigger bloquea la variante, valida y guarda el stock resultante. La API
+  no puede escribir `stock` ni `reservado`. Un movimiento afecta solo a su medida.
+- **Sin stock negativo** y sin dejar reservas sin respaldo, salvo autorización explícita de propietario o administrador.
+- **Compras**: `registrar_compra()` registra muchas medidas en una sola operación atómica y crea las medidas que no
+  existan. En la app se cargan en una **matriz esfera × cilindro** (o × adición en multifocales), con varios
+  productos por compra.
+- Cualquier miembro registra compras, ventas, pérdidas y devoluciones. Los **ajustes** y el **inventario físico**
+  (`registrar_conteo()`) son solo de propietario o administrador y quedan con motivo y usuario.
+- **Cilindro negativo**: el stock se guarda con cilindro ≤ 0. Una receta en cilindro positivo se transpone
+  (esfera + cilindro, −cilindro, eje ± 90°) antes de buscar, porque es la misma luna óptica. La interfaz lo indica.
+- **Órdenes**: para cada ojo se busca la medida exacta del producto elegido. Si no existe o no hay stock, se informa
+  ("solicitar al proveedor") y las alternativas aparecen solo como **sugerencias** que el usuario debe confirmar.
+  Al **reservar** (venta iniciada) se aparta la luna; al **enviar al laboratorio** se descuenta (movimiento de
+  consumo); si se **anula** en venta iniciada se libera; si **vuelve** a venta iniciada se repone con una devolución.
+  Una orden anulada después de enviarse no repone stock sola (las lunas pueden estar cortadas): se registra una
+  devolución manual si vuelven.
+- **Reposición**: cada medida tiene su mínimo; el panel y la pestaña Reposición avisan cuando el disponible llega al
+  mínimo o se agota. Las existencias filtradas se exportan a **Excel (.xlsx)**.
+- El eje se guarda solo si el producto lo requiere. La carga por matriz registra medidas sin eje (lunas terminadas,
+  donde el eje se da al biselar).
+
+## Roles y permisos
+
+Se comprueban en la interfaz, en cada Server Action y en la base (RLS y funciones `SECURITY DEFINER` con
+verificación de rol).
+
+| | Propietario | Administrador | Operador |
+|---|:-:|:-:|:-:|
+| Pacientes, recetas, órdenes, laboratorios | ✓ | ✓ | ✓ |
+| Inventario: compras, ventas, pérdidas, devoluciones, reservas | ✓ | ✓ | ✓ |
+| Inventario: ajustes, inventario físico, stock negativo | ✓ | ✓ | — |
+| Precio de cada orden | ✓ | ✓ | ✓ |
+| Ventas totales, informes y metas | ✓ | ✓ | — |
+| Datos de la óptica, auditoría | ✓ | ✓ | — |
+| Agregar miembros, cambiar roles, quitar acceso | ✓ | — | — |
+
+Para sumar a alguien: la persona crea su cuenta y el propietario la agrega con ese correo en **Administración**.
+La óptica siempre conserva al menos un propietario activo.
+
+## Aviso por WhatsApp
+
+Cuando una orden pasa a **Listo para entrega**, un trigger encola un aviso en `notificaciones` (uno por orden:
+`unique (orden_id, tipo)`). Después de responder al usuario, la app invoca la Edge Function `enviar-whatsapp`, que:
+
+1. comprueba con el JWT del usuario (RLS) que el aviso es de su óptica;
+2. lo reclama de forma atómica (`pendiente → enviando`), lo que evita envíos duplicados;
+3. envía la plantilla aprobada por la **API oficial de WhatsApp Business (Meta Cloud API)**;
+4. guarda el resultado: enviado (con el id del mensaje) o fallido (con el error), con intentos y fechas.
+
+Si falta el consentimiento del paciente o su teléfono no es un celular válido de Perú, el aviso queda
+**No enviado** con el motivo. Ningún fallo bloquea el cambio de estado. Los avisos fallidos u omitidos se
+**reintentan** desde la orden, y el reintento vuelve a revisar el teléfono y el consentimiento.
+
+### Configuración pendiente (necesaria para enviar mensajes reales)
+
+1. En [Meta for Developers](https://developers.facebook.com/), crea una app de tipo Business con el producto
+   WhatsApp y registra el número de la óptica.
+2. Crea y envía a aprobación una plantilla **Utilidad**, idioma **Español (es)**, nombre `lentes_listos`, con cuerpo:
+   `Hola, {{1}}. Te informamos que tus lentes ya están listos para recoger en nuestra óptica. ¡Gracias por confiar en nosotros!`
+3. Genera un **token permanente** con un usuario del sistema (permiso `whatsapp_business_messaging`) y copia el
+   **Phone number ID**.
+4. Guarda los secretos y despliega la función (las credenciales nunca van al frontend ni al repositorio):
+   ```bash
+   npx supabase secrets set WHATSAPP_TOKEN=... WHATSAPP_PHONE_NUMBER_ID=...
+   npx supabase functions deploy enviar-whatsapp
+   ```
+   Opcionales: `WHATSAPP_TEMPLATE` (por defecto `lentes_listos`), `WHATSAPP_TEMPLATE_LANG` (por defecto `es`).
+
+En local, copia `supabase/functions/.env.example` a `supabase/functions/.env` (ignorado por git) y reinicia Supabase.
+
+Pendiente a futuro: webhook de Meta para estados de entrega o lectura, y reintentos automáticos programados.
+
+## Producción
+
+1. `npx supabase link --project-ref <ref>` y `npx supabase db push` (aplica las migraciones).
+2. Secretos y despliegue de `enviar-whatsapp` (ver arriba).
+3. Variables `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY` en el hosting de Next.js.
+4. En Supabase Auth: `Site URL` y `Redirect URLs` con el dominio real, incluido `/auth/confirmar`, y
+   confirmación de correo activada.
+5. La clave `service_role` solo vive en la Edge Function (la inyecta Supabase); la app no la usa.

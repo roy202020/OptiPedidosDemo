@@ -26,3 +26,17 @@ export function edad(nacimiento: string | null | undefined, hoy = new Date()): n
   if (hoy.getMonth() + 1 < m || (hoy.getMonth() + 1 === m && hoy.getDate() < d)) anios--;
   return anios;
 }
+
+const FORMATO_SOLES = new Intl.NumberFormat("es-PE", { style: "currency", currency: "PEN", minimumFractionDigits: 2 });
+
+/** Importe en soles: 1234.5 → "S/ 1,234.50". */
+export function soles(n: number | string | null | undefined): string {
+  if (n == null || n === "") return "—";
+  return FORMATO_SOLES.format(Number(n));
+}
+
+/** Mes de un periodo AAAA-MM-01: "octubre 2026". */
+export function mes(periodo: string): string {
+  const [a, m] = periodo.split("-").map(Number);
+  return new Intl.DateTimeFormat("es-PE", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(Date.UTC(a, m - 1, 1)));
+}

@@ -4,4 +4,6 @@ export type EstadoFormulario = {
   aviso?: string;
   campos?: Record<string, string[] | undefined>;
   valores?: Record<string, string>;
+  /** La acción terminó bien (los diálogos de confirmación se cierran). */
+  listo?: boolean;
 };

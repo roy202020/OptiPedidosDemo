@@ -1,7 +1,9 @@
 "use client";
 
+import { Save } from "lucide-react";
 import { useActionState } from "react";
-import { Alerta, AreaTexto, BotonEnviar, Campo } from "@/components/formulario";
+import { Alerta, AreaTexto, BotonEnviar, Campo, Seccion } from "@/components/formulario";
+import { EnlaceBoton } from "@/components/ui";
 import type { EstadoFormulario } from "@/lib/estado-formulario";
 import { BASES_PRISMA, OJOS } from "@/lib/validacion/receta";
 
@@ -9,6 +11,7 @@ type Props = {
   accion: (previo: EstadoFormulario, datos: FormData) => Promise<EstadoFormulario>;
   inicial: Record<string, string>;
   hoy: string;
+  cancelar: string;
 };
 
 const COLUMNAS = [
@@ -23,7 +26,7 @@ const COLUMNAS = [
 
 const NOMBRE_OJO = { od: "OD (derecho)", oi: "OI (izquierdo)" };
 
-export function FormularioReceta({ accion, inicial, hoy }: Props) {
+export function FormularioReceta({ accion, inicial, hoy, cancelar }: Props) {
   const [estado, enviar] = useActionState(accion, {} as EstadoFormulario);
   const v = estado.valores ?? inicial;
   const e = estado.campos ?? {};
@@ -36,14 +39,14 @@ export function FormularioReceta({ accion, inicial, hoy }: Props) {
   );
 
   const claseCelda =
-    "h-9 w-full min-w-16 rounded-md border border-zinc-300 bg-white px-2 text-center text-sm tabular-nums outline-none focus:border-sky-600 focus:ring-2 focus:ring-sky-600/20 aria-invalid:border-red-500 aria-invalid:bg-red-50 dark:border-zinc-700 dark:bg-zinc-900 dark:aria-invalid:bg-red-950";
+    "h-9 w-full min-w-16 rounded-lg border border-slate-300 bg-white px-2 text-center text-sm tabular-nums shadow-sm outline-none focus:border-marca-500 focus:ring-3 focus:ring-marca-500/15 aria-invalid:border-red-500 aria-invalid:bg-red-50";
 
   return (
     <form action={enviar} className="flex flex-col gap-5" noValidate>
       {estado.error && <Alerta tipo="error">{estado.error}</Alerta>}
       <input type="hidden" name="reemplaza_a" value={v.reemplaza_a ?? ""} />
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <Seccion titulo="Examen" descripcion="Fecha y profesional que realizó la medición.">
         <Campo
           nombre="fecha_examen"
           etiqueta="Fecha del examen"
@@ -54,28 +57,28 @@ export function FormularioReceta({ accion, inicial, hoy }: Props) {
           errores={e.fecha_examen}
         />
         <Campo nombre="profesional" etiqueta="Profesional" maxLength={120} defaultValue={v.profesional} errores={e.profesional} />
-      </div>
+      </Seccion>
 
-      <fieldset>
-        <legend className="mb-2 text-sm font-medium">Graduación</legend>
+      <fieldset className="border-t border-slate-100 pt-6">
+        <legend className="mb-1 text-sm font-semibold text-slate-900">Graduación</legend>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[720px] text-sm">
             <thead>
-              <tr className="text-xs text-zinc-500">
-                <th className="w-28 pb-2 text-left font-medium">Ojo</th>
+              <tr className="text-xs text-slate-500">
+                <th scope="col" className="w-28 pb-2 text-left font-medium">Ojo</th>
                 {COLUMNAS.map((c) => (
-                  <th key={c.campo} className="px-1 pb-2 font-medium">
+                  <th scope="col" key={c.campo} className="px-1 pb-2 font-medium">
                     {c.titulo}
-                    <span className="block font-normal text-zinc-400">{c.ayuda}</span>
+                    <span className="block font-normal text-slate-400">{c.ayuda}</span>
                   </th>
                 ))}
-                <th className="px-1 pb-2 font-medium">Base</th>
+                <th scope="col" className="px-1 pb-2 font-medium">Base</th>
               </tr>
             </thead>
             <tbody>
               {OJOS.map((o) => (
                 <tr key={o}>
-                  <th className="py-1 text-left font-medium">{NOMBRE_OJO[o]}</th>
+                  <th scope="row" className="py-1 text-left font-medium text-slate-700">{NOMBRE_OJO[o]}</th>
                   {COLUMNAS.map((c) => {
                     const nombre = `${o}_${c.campo}`;
                     return (
@@ -113,11 +116,11 @@ export function FormularioReceta({ accion, inicial, hoy }: Props) {
             </tbody>
           </table>
         </div>
-        <p className="mt-2 text-xs text-zinc-500">
+        <p className="mt-2 text-xs text-slate-500">
           Escribe las graduaciones con signo (por ejemplo +1.25 o -0.50). “pl” o “plano” equivale a 0. Deja vacío lo que no aplique.
         </p>
         {erroresTabla.length > 0 && (
-          <ul role="alert" className="mt-2 list-inside list-disc text-sm text-red-600 dark:text-red-400">
+          <ul role="alert" className="mt-3 list-inside list-disc rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
             {erroresTabla.map((m) => (
               <li key={m}>{m}</li>
             ))}
@@ -125,9 +128,14 @@ export function FormularioReceta({ accion, inicial, hoy }: Props) {
         )}
       </fieldset>
 
-      <AreaTexto nombre="observaciones" etiqueta="Observaciones" maxLength={1000} defaultValue={v.observaciones} errores={e.observaciones} />
-      <div>
-        <BotonEnviar pendiente="Guardando…">Guardar receta</BotonEnviar>
+      <div className="border-t border-slate-100 pt-6">
+        <AreaTexto nombre="observaciones" etiqueta="Observaciones" maxLength={1000} defaultValue={v.observaciones} errores={e.observaciones} />
+      </div>
+      <div className="flex flex-col-reverse gap-2 border-t border-slate-100 pt-6 sm:flex-row sm:justify-end">
+        <EnlaceBoton href={cancelar}>Cancelar</EnlaceBoton>
+        <BotonEnviar pendiente="Guardando…" icono={Save}>
+          Guardar receta
+        </BotonEnviar>
       </div>
     </form>
   );

@@ -56,17 +56,18 @@ export async function actualizarPaciente(
 }
 
 /** Archiva o restaura. No se borran pacientes: su historial clínico se conserva. */
-export async function cambiarArchivo(id: string, archivar: boolean) {
+export async function cambiarArchivo(id: string, archivar: boolean, _previo: EstadoFormulario, _datos: FormData): Promise<EstadoFormulario> {
   const optica = await exigirOptica();
-  if (!idValido(id)) return;
+  if (!idValido(id)) return { error: "Paciente inválido." };
   const supabase = await crearClienteServidor();
   const { error } = await supabase
     .from("pacientes")
     .update({ archivado_en: archivar ? new Date().toISOString() : null })
     .eq("id", id)
     .eq("optica_id", optica.id);
-  if (error) throw new Error(mensajeDb(error));
+  if (error) return { error: mensajeDb(error) };
   revalidatePath("/panel/pacientes", "layout");
+  return { listo: true };
 }
 
 // ---------------------------------------------------------------- recetas
@@ -135,5 +136,5 @@ export async function anularReceta(
   if (error) return { error: mensajeDb(error), valores };
 
   revalidatePath(`/panel/pacientes/${pacienteId}`);
-  return { aviso: "Receta anulada." };
+  return { listo: true };
 }

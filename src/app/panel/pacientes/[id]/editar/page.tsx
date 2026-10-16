@@ -24,6 +24,7 @@ async function Edicion({ params }: Pick<PageProps<"/panel/pacientes/[id]/editar"
       (k) => [k, p[k] ?? ""],
     ),
   );
+  inicial.acepta_whatsapp = p.acepta_whatsapp ? "on" : "";
 
   return (
     <>
@@ -31,11 +32,12 @@ async function Edicion({ params }: Pick<PageProps<"/panel/pacientes/[id]/editar"
         titulo="Editar paciente"
         volver={{ href: `/panel/pacientes/${id}`, texto: `${p.apellidos}, ${p.nombres}` }}
       />
-      <Tarjeta className="max-w-2xl">
+      <Tarjeta className="max-w-4xl">
         <FormularioPaciente
           accion={actualizarPaciente.bind(null, id)}
           inicial={inicial}
           textoBoton="Guardar cambios"
+          cancelar={`/panel/pacientes/${id}`}
           hoy={hoyISO()}
         />
       </Tarjeta>

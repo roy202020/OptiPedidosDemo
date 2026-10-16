@@ -20,6 +20,8 @@ export const esquemaPaciente = z
       z.email("Correo inválido").nullable(),
     ),
     notas: textoOpcional(1000),
+    // Checkbox: llega "on" si está marcado y no llega si no.
+    acepta_whatsapp: z.preprocess((v) => v === "on" || v === "true" || v === true, z.boolean()),
   })
   .superRefine((p, ctx) => {
     if (!p.numero_documento) return;

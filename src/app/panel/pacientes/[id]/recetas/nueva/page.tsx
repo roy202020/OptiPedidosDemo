@@ -47,7 +47,7 @@ async function Contenido({ params, searchParams }: Props) {
     <>
       <Encabezado
         titulo={corrige ? "Corregir receta" : "Nueva receta"}
-        subtitulo={
+        descripcion={
           corrige
             ? `Se creará una receta nueva que reemplaza a la del ${fecha(corrige.fecha_examen)}. La original queda en el historial.`
             : `${paciente.apellidos}, ${paciente.nombres}`
@@ -56,9 +56,9 @@ async function Contenido({ params, searchParams }: Props) {
       />
       <Tarjeta>
         {paciente.archivado_en ? (
-          <p className="text-sm text-zinc-600">El paciente está archivado. Restáuralo para registrar recetas.</p>
+          <p className="text-sm text-slate-600">El paciente está archivado. Restáuralo para registrar recetas.</p>
         ) : (
-          <FormularioReceta accion={crearReceta.bind(null, id)} inicial={corrige ? aTexto(corrige) : {}} hoy={hoyISO()} />
+          <FormularioReceta accion={crearReceta.bind(null, id)} inicial={corrige ? aTexto(corrige) : {}} hoy={hoyISO()} cancelar={`/panel/pacientes/${id}`} />
         )}
       </Tarjeta>
     </>

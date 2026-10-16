@@ -1,52 +1,28 @@
-import Link from "next/link";
 import { Suspense } from "react";
-import { cerrarSesion } from "@/app/(acceso)/acciones";
+import { NOMBRE_ROL } from "@/lib/permisos";
 import { exigirOptica, obtenerUsuario } from "@/lib/sesion";
-
-// Cada módulo nuevo (órdenes, pacientes, laboratorios) agrega aquí su enlace.
-const SECCIONES = [
-  { href: "/panel", texto: "Inicio" },
-  { href: "/panel/pacientes", texto: "Pacientes" },
-];
+import { MenuLateral, MenuLateralEsqueleto } from "./menu-lateral";
 
 export default function LayoutPanel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex flex-1 flex-col bg-zinc-50 dark:bg-zinc-950">
-      <header className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
-          <Link href="/panel" className="font-semibold tracking-tight text-sky-800 dark:text-sky-400">
-            OptiPedidos
-          </Link>
-          <nav className="flex flex-wrap gap-4 text-sm">
-            {SECCIONES.map((s) => (
-              <Link key={s.href} href={s.href} className="text-zinc-600 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white">
-                {s.texto}
-              </Link>
-            ))}
-          </nav>
-          <div className="ml-auto flex items-center gap-3 text-sm">
-            <Suspense fallback={<span className="text-zinc-400">…</span>}>
-              <Identidad />
-            </Suspense>
-            <form action={cerrarSesion}>
-              <button className="rounded-md border border-zinc-300 px-3 py-1.5 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800">
-                Salir
-              </button>
-            </form>
-          </div>
-        </div>
-      </header>
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">{children}</main>
+    <div className="min-h-dvh lg:pl-64">
+      <a
+        href="#contenido"
+        className="sr-only z-50 rounded-lg bg-white px-3 py-2 text-sm font-medium focus:not-sr-only focus:fixed focus:top-2 focus:left-2"
+      >
+        Saltar al contenido
+      </a>
+      <Suspense fallback={<MenuLateralEsqueleto />}>
+        <Menu />
+      </Suspense>
+      <main id="contenido" className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+        {children}
+      </main>
     </div>
   );
 }
 
-async function Identidad() {
+async function Menu() {
   const [usuario, optica] = await Promise.all([obtenerUsuario(), exigirOptica()]);
-  return (
-    <span className="text-right leading-tight">
-      <span className="block font-medium text-zinc-900 dark:text-zinc-100">{optica.nombre}</span>
-      <span className="block text-xs text-zinc-500">{usuario.email}</span>
-    </span>
-  );
+  return <MenuLateral rol={optica.rol} nombreRol={NOMBRE_ROL[optica.rol]} optica={optica.nombre} email={usuario.email} />;
 }
