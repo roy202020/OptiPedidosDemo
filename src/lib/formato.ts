@@ -40,3 +40,10 @@ export function mes(periodo: string): string {
   const [a, m] = periodo.split("-").map(Number);
   return new Intl.DateTimeFormat("es-PE", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(Date.UTC(a, m - 1, 1)));
 }
+
+const FECHA_LIMA = new Intl.DateTimeFormat("es-PE", { timeZone: "America/Lima", day: "2-digit", month: "2-digit", year: "numeric" });
+
+/** Fecha de un instante (timestamptz) en hora de Lima: DD/MM/AAAA. */
+export function fechaLima(iso: string): string {
+  return FECHA_LIMA.format(new Date(iso));
+}

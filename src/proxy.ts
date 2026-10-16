@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 /** Rutas que exigen sesión iniciada. */
-const PRIVADAS = ["/panel", "/nueva-optica"];
+const PRIVADAS = ["/panel", "/nueva-optica", "/imprimir"];
 /** Rutas que no tienen sentido con sesión iniciada (se envía al panel). */
 const SOLO_VISITANTES = ["/", "/ingresar", "/registro"];
 

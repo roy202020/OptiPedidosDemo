@@ -1,9 +1,9 @@
-import { Ban, Mail, MessageCircle, Pencil, Phone, RotateCw, Undo2 } from "lucide-react";
+import { Ban, Mail, MessageCircle, Pencil, Phone, Printer, RotateCw, Send, Undo2 } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { Alerta, Campo, Confirmacion } from "@/components/formulario";
-import { Cargando, Datos, Encabezado, EnlaceBoton, Insignia, Tarjeta } from "@/components/ui";
+import { Cargando, claseBoton, Datos, Encabezado, EnlaceBoton, Insignia, Tarjeta } from "@/components/ui";
 import { obtenerOrden, transicionesDesde, type OrdenDetalle } from "@/lib/datos/ordenes";
 import { fecha, graduacion, soles, valor } from "@/lib/formato";
 import {
@@ -18,6 +18,9 @@ import {
   type EstadoInterno,
 } from "@/lib/ordenes/estados";
 import { avisoDeOrden, type Aviso } from "@/lib/notificaciones";
+import { enlaceWhatsAppLaboratorio } from "@/lib/ordenes/mensaje-laboratorio";
+import { exigirOptica } from "@/lib/sesion";
+import { crearClienteServidor } from "@/lib/supabase/servidor";
 import { hoyISO } from "@/lib/validacion/comun";
 import { agregarObservacion, cambiarEstado, reintentarAviso } from "../acciones";
 import { InsigniaEstado, MarcasOrden } from "../componentes";
@@ -46,7 +49,10 @@ async function Detalle({ params, searchParams }: Props) {
     OI: typeof sp.lunas_OI === "string" ? sp.lunas_OI : undefined,
   };
   const { orden: o, usuario } = await obtenerOrden(id);
-  const [transiciones, aviso] = await Promise.all([transicionesDesde(o.estado), avisoDeOrden(id)]);
+  const [transiciones, aviso, optica] = await Promise.all([transicionesDesde(o.estado), avisoDeOrden(id), exigirOptica()]);
+  const supabase = await crearClienteServidor();
+  const { data: datosOptica } = await supabase.from("opticas").select("nombre, telefono").eq("id", optica.id).single();
+  const whatsapp = enlaceWhatsAppLaboratorio(o, { nombre: datosOptica?.nombre ?? optica.nombre, telefono: datosOptica?.telefono });
   const hoy = hoyISO();
 
   // Primero los avances, luego "devolver" y al final "anular".
@@ -66,6 +72,22 @@ async function Detalle({ params, searchParams }: Props) {
         }
         volver={{ href: "/panel/ordenes", texto: "Órdenes" }}
       >
+        <a href={`/imprimir/orden/${id}?auto=1`} target="_blank" rel="noopener" className={claseBoton("secundario")}>
+          <Printer aria-hidden className="size-4" />
+          Imprimir
+        </a>
+        {o.estado !== "anulada" && (
+          <a
+            href={whatsapp.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={whatsapp.conNumero ? `Abre WhatsApp con el chat de ${o.laboratorio.nombre}` : "El laboratorio no tiene un celular válido: elegirás el contacto en WhatsApp"}
+            className={claseBoton("secundario")}
+          >
+            <Send aria-hidden className="size-4" />
+            WhatsApp al laboratorio
+          </a>
+        )}
         {o.estado === "borrador" && (
           <EnlaceBoton href={`/panel/ordenes/${id}/editar`} icono={Pencil}>
             Editar
