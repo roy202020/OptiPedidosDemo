@@ -1,8 +1,8 @@
-import { AlarmClock, Zap } from "lucide-react";
+import { AlarmClock, Wallet, Zap } from "lucide-react";
 import Link from "next/link";
 import { Insignia, Tabla, Td, Th } from "@/components/ui";
 import type { OrdenResumen } from "@/lib/datos/ordenes";
-import { fecha } from "@/lib/formato";
+import { fecha, soles } from "@/lib/formato";
 import { COMERCIAL, COMERCIAL_DE, SUBESTADO, TIPOS_TRABAJO, estaAtrasada, numeroOrden, type EstadoInterno } from "@/lib/ordenes/estados";
 
 /** Estado comercial con el subestado de laboratorio como texto de ayuda. */
@@ -17,9 +17,17 @@ export function InsigniaEstado({ estado, detalle = false }: { estado: EstadoInte
   );
 }
 
-export function MarcasOrden({ orden, hoy }: { orden: Pick<OrdenResumen, "estado" | "prioridad" | "fecha_entrega_prometida">; hoy: string }) {
+export function MarcasOrden({
+  orden,
+  hoy,
+}: {
+  orden: Pick<OrdenResumen, "estado" | "prioridad" | "fecha_entrega_prometida" | "saldo">;
+  hoy: string;
+}) {
   const atrasada = estaAtrasada(orden.estado, orden.fecha_entrega_prometida, hoy);
-  if (!atrasada && orden.prioridad !== "urgente") return null;
+  // El saldo solo llega en el listado y el tablero; en una orden anulada no se cobra.
+  const saldo = orden.estado === "anulada" ? 0 : Number(orden.saldo ?? 0);
+  if (!atrasada && orden.prioridad !== "urgente" && saldo <= 0) return null;
   return (
     <span className="inline-flex flex-wrap gap-1">
       {atrasada && (
@@ -30,6 +38,11 @@ export function MarcasOrden({ orden, hoy }: { orden: Pick<OrdenResumen, "estado"
       {orden.prioridad === "urgente" && (
         <Insignia tono="ambar" icono={Zap}>
           Urgente
+        </Insignia>
+      )}
+      {saldo > 0 && (
+        <Insignia tono="ambar" icono={Wallet}>
+          Saldo {soles(saldo)}
         </Insignia>
       )}
     </span>

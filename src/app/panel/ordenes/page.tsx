@@ -40,6 +40,7 @@ async function Contenido({ searchParams }: Pick<Props, "searchParams">) {
     desde: texto(sp.desde),
     hasta: texto(sp.hasta),
     atrasadas: sp.atrasadas === "1",
+    conSaldo: sp.saldo === "1",
     pagina: Math.max(1, Number.parseInt(String(sp.pagina ?? "1"), 10) || 1),
   };
   const tablero = sp.vista === "tablero";
@@ -54,6 +55,7 @@ async function Contenido({ searchParams }: Pick<Props, "searchParams">) {
       desde: filtros.desde,
       hasta: filtros.hasta,
       atrasadas: filtros.atrasadas ? "1" : undefined,
+      saldo: filtros.conSaldo ? "1" : undefined,
       vista: tablero ? "tablero" : undefined,
     };
     const s = new URLSearchParams(Object.entries({ ...actual, ...cambios }).filter((e): e is [string, string] => Boolean(e[1]))).toString();
@@ -95,11 +97,17 @@ async function Contenido({ searchParams }: Pick<Props, "searchParams">) {
           <span className="text-slate-400">–</span>
           <input type="date" name="hasta" aria-label="Creadas hasta" defaultValue={filtros.hasta} className={`${claseControl} h-10`} />
         </div>
-        <label className="flex items-center gap-2 text-sm text-slate-700 sm:col-span-2 lg:col-span-3">
-          <input type="checkbox" name="atrasadas" value="1" defaultChecked={filtros.atrasadas} className="size-4 accent-marca-700" />
-          Solo atrasadas (fecha prometida vencida y aún no llegan a la óptica)
-        </label>
-        <div className="flex gap-2 sm:col-span-2 lg:col-span-3 lg:justify-end">
+        <div className="flex flex-col gap-2 sm:col-span-2 lg:col-span-4">
+          <label className="flex items-center gap-2 text-sm text-slate-700">
+            <input type="checkbox" name="atrasadas" value="1" defaultChecked={filtros.atrasadas} className="size-4 accent-marca-700" />
+            Solo atrasadas (fecha prometida vencida y aún no llegan a la óptica)
+          </label>
+          <label className="flex items-center gap-2 text-sm text-slate-700">
+            <input type="checkbox" name="saldo" value="1" defaultChecked={filtros.conSaldo} className="size-4 accent-marca-700" />
+            Con saldo pendiente
+          </label>
+        </div>
+        <div className="flex items-end gap-2 sm:col-span-2 lg:col-span-2 lg:justify-end">
           {hay && (
             <Link href={tablero ? "/panel/ordenes?vista=tablero" : "/panel/ordenes"} className={claseBoton("fantasma")}>
               Limpiar
