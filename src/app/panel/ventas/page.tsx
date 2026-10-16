@@ -1,9 +1,10 @@
 import { CalendarDays, Receipt, Target, TrendingDown, TrendingUp } from "lucide-react";
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { BarraProgreso, Cargando, Encabezado, Indicador, Insignia, Tabla, Tarjeta, Td, Th } from "@/components/ui";
-import { cumplimiento, variacion, ventasDelDia, ventasMensuales } from "@/lib/datos/ventas";
+import { BarraProgreso, Cargando, Encabezado, EnlaceBoton, Indicador, Insignia, Tabla, Tarjeta, Td, Th } from "@/components/ui";
+import { cajaDelDia, cumplimiento, variacion, ventasDelDia, ventasMensuales } from "@/lib/datos/ventas";
 import { mes, soles } from "@/lib/formato";
+import { MEDIOS_PAGO, type MedioPago } from "@/lib/ordenes/pagos";
 import { tienePermiso } from "@/lib/permisos";
 import { exigirPermiso } from "@/lib/sesion";
 import { FormularioMeta } from "./formulario-meta";
@@ -29,7 +30,7 @@ const porcentaje = (n: number) => `${n.toLocaleString("es-PE", { maximumFraction
 
 async function Contenido() {
   const optica = await exigirPermiso("verVentas");
-  const [meses, hoy] = await Promise.all([ventasMensuales(12), ventasDelDia()]);
+  const [meses, hoy, caja] = await Promise.all([ventasMensuales(12), ventasDelDia(), cajaDelDia()]);
   const [actual, anterior] = meses;
   const c = cumplimiento(actual.ventas, actual.meta);
   const v = variacion(actual.ventas, anterior?.ventas);
@@ -56,6 +57,43 @@ async function Contenido() {
           tono={c && c.falta === 0 ? "verde" : "neutro"}
         />
       </div>
+
+      <Tarjeta
+        titulo="Caja del día"
+        descripcion="Lo cobrado hoy (hora de Lima) según los pagos vigentes. Es dinero cobrado, no venta: no cuenta para la meta."
+        acciones={
+          <EnlaceBoton href="/panel/ordenes?saldo=1" tamano="sm">
+            Ver órdenes con saldo
+          </EnlaceBoton>
+        }
+      >
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+          <dl className="grid grid-cols-2 gap-4 lg:grid-cols-1">
+            <div>
+              <dt className="text-sm font-medium text-slate-500">Cobrado hoy</dt>
+              <dd className="mt-1 text-2xl font-semibold tracking-tight text-slate-900 tabular-nums">{soles(caja.cobrado)}</dd>
+              <dd className="text-xs text-slate-500">{caja.pagos === 1 ? "1 pago" : `${caja.pagos} pagos`}</dd>
+            </div>
+            <div>
+              <dt className="text-sm font-medium text-slate-500">Saldos por cobrar</dt>
+              <dd className={`mt-1 text-2xl font-semibold tracking-tight tabular-nums ${caja.saldoPendiente > 0 ? "text-amber-800" : "text-slate-900"}`}>
+                {soles(caja.saldoPendiente)}
+              </dd>
+              <dd className="text-xs text-slate-500">
+                {caja.ordenesConSaldo === 1 ? "1 orden no anulada" : `${caja.ordenesConSaldo} órdenes no anuladas`}
+              </dd>
+            </div>
+          </dl>
+          <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {(Object.entries(MEDIOS_PAGO) as [MedioPago, string][]).map(([m, nombre]) => (
+              <div key={m} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <dt className="text-xs font-medium text-slate-500">{nombre}</dt>
+                <dd className="mt-1 font-semibold text-slate-900 tabular-nums">{soles(caja.porMedio[m])}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      </Tarjeta>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
         <Tarjeta titulo="Ventas de los últimos 12 meses">

@@ -62,6 +62,7 @@ tests/                   pruebas Vitest (api/, unit/)
 | `20261016300000_administracion_miembros` | `agregar_miembro()` por correo y protección del último propietario |
 | `20261017000000_inventario_lunas` | Productos, variantes por medida exacta, movimientos, reservas, compras masivas, inventario físico, vista de existencias |
 | `20261017100000_orden_pagos` | Tabla `orden_pagos` (adelantos y saldo), control de saldo, anulación con motivo |
+| `20261017200000_caja_saldos` | Columna calculada `saldo` de cada orden y `caja_del_dia()` |
 
 Ninguna migración borra tablas, columnas ni datos. La 0004 rellena `confirmada_en` de órdenes ya confirmadas
 desde su historial.
@@ -107,6 +108,10 @@ El mapeo existe en la base (`estado_comercial()`) y en `src/lib/ordenes/estados.
   otro si hace falta. Altas y anulaciones quedan en `auditoria`. Cualquier miembro de la óptica cobra y anula.
 - Se cobra desde venta iniciada (adelanto) hasta la entrega; no en órdenes anuladas, cuyos pagos sí se pueden anular
   como devolución. Al entregar con saldo pendiente, la confirmación lo advierte (no lo impide).
+- `saldo(ordenes)` es una columna calculada de PostgREST (`select=saldo`, filtro `saldo=gt.0`). La lista y el tablero
+  de órdenes marcan «Saldo S/ X» en las no anuladas con saldo y tienen el filtro «Con saldo pendiente».
+- **Caja del día** (`caja_del_dia()`, solo propietario y administrador): pagos vigentes con fecha de hoy (Lima) por
+  medio de pago, más el saldo pendiente total de las órdenes no anuladas. Es dinero cobrado, no venta: la meta no cambia.
 
 ## Inventario de lunas
 

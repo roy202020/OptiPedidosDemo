@@ -22,6 +22,8 @@ export type FiltrosOrdenes = {
   desde?: string;
   hasta?: string;
   atrasadas?: boolean;
+  /** Solo órdenes no anuladas con saldo pendiente. */
+  conSaldo?: boolean;
   pagina?: number;
 };
 
@@ -35,10 +37,12 @@ export type OrdenResumen = {
   creado_en: string;
   paciente: { id: string; nombres: string; apellidos: string; telefono: string | null };
   laboratorio: { id: string; nombre: string } | null;
+  /** Importe neto menos pagos vigentes (columna calculada public.saldo); llega como texto numérico. */
+  saldo?: number | string;
 };
 
 const COLUMNAS_RESUMEN =
-  "id, numero, estado, prioridad, tipo_trabajo, fecha_entrega_prometida, creado_en, paciente:pacientes!inner(id, nombres, apellidos, telefono), laboratorio:laboratorios(id, nombre)";
+  "id, numero, estado, prioridad, tipo_trabajo, fecha_entrega_prometida, creado_en, saldo, paciente:pacientes!inner(id, nombres, apellidos, telefono), laboratorio:laboratorios(id, nombre)";
 
 const esUuid = (v?: string) => Boolean(v && z.uuid().safeParse(v).success);
 const esFecha = (v?: string) => Boolean(v && z.iso.date().safeParse(v).success);
@@ -60,6 +64,7 @@ function aplicarFiltros<Q extends { [k: string]: any }>(consulta: Q, f: FiltrosO
   if (esFecha(f.desde)) c = c.gte("creado_en", f.desde);
   if (esFecha(f.hasta)) c = c.lt("creado_en", diaSiguiente(f.hasta!));
   if (f.atrasadas) c = c.in("estado", PENDIENTES_DE_LLEGAR).lt("fecha_entrega_prometida", hoyISO());
+  if (f.conSaldo) c = c.neq("estado", "anulada").gt("saldo", 0);
 
   const q = (f.q ?? "").trim();
   if (/^#?\d{1,9}$/.test(q)) {
