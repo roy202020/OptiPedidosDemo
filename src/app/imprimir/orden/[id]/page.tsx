@@ -8,6 +8,7 @@ import { fecha, graduacion, soles, valor } from "@/lib/formato";
 import { textoMedida } from "@/lib/inventario/medidas";
 import { ORIGENES_MONTURA, SUBESTADO, TIPOS_TRABAJO, numeroOrden } from "@/lib/ordenes/estados";
 import { descripcionLente } from "@/lib/ordenes/mensaje-laboratorio";
+import { MEDIOS_PAGO, resumenPagos } from "@/lib/ordenes/pagos";
 import { exigirOptica } from "@/lib/sesion";
 import { crearClienteServidor } from "@/lib/supabase/servidor";
 import { BotonImprimir } from "./barra-impresion";
@@ -42,6 +43,8 @@ async function Ticket({ params, searchParams }: Props) {
   ]);
   const op = datosOptica.data as { nombre: string; ruc: string | null; telefono: string | null; direccion: string | null };
   const base = `/imprimir/orden/${id}`;
+  const cobro = resumenPagos(o, o.pagos);
+  const pagosVigentes = o.pagos.filter((p) => !p.anulado_en);
 
   return (
     <>
@@ -184,8 +187,35 @@ async function Ticket({ params, searchParams }: Props) {
               <dt>Descuento</dt>
               <dd>{Number(o.descuento) ? `-${soles(o.descuento)}` : soles(0)}</dd>
               <dt className="font-bold">Total</dt>
-              <dd className="font-bold">{soles(Number(o.precio) - Number(o.descuento))}</dd>
+              <dd className="font-bold">{soles(cobro.neto)}</dd>
             </dl>
+            {cobro.neto > 0 && (
+              <>
+                <Linea />
+                <p className="font-bold">PAGOS</p>
+                {pagosVigentes.length > 0 ? (
+                  <table className="w-full tabular-nums">
+                    <tbody>
+                      {pagosVigentes.map((p) => (
+                        <tr key={p.id}>
+                          <td className="pr-1">{fecha(p.fecha)}</td>
+                          <td>{MEDIOS_PAGO[p.medio]}</td>
+                          <td className="text-right">{soles(p.importe)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <p>Sin pagos registrados.</p>
+                )}
+                <dl className="mt-1 grid grid-cols-[1fr_auto] tabular-nums">
+                  <dt>Total pagado</dt>
+                  <dd>{soles(cobro.pagado)}</dd>
+                  <dt className="font-bold">{cobro.saldo > 0 ? "SALDO PENDIENTE" : "Saldo"}</dt>
+                  <dd className="font-bold">{cobro.saldo > 0 ? soles(cobro.saldo) : "CANCELADO"}</dd>
+                </dl>
+              </>
+            )}
             <p className="mt-0.5 text-[10px]">Importes en soles, IGV incluido.</p>
           </>
         )}
