@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import type { EstadoFormulario } from "@/lib/estado-formulario";
 import { mensajeDb } from "@/lib/errores-db";
-import { exigirOptica } from "@/lib/sesion";
+import { exigirOptica, sedeParaRegistrar } from "@/lib/sesion";
 import { crearClienteServidor } from "@/lib/supabase/servidor";
 import { valoresDe } from "@/lib/validacion/comun";
 import { esquemaPaciente } from "@/lib/validacion/paciente";
@@ -105,9 +105,12 @@ export async function crearReceta(
     if (!original) return { error: "La receta que intentas corregir no es válida.", valores };
   }
 
+  // Sede de la evaluación (de ahí sale el recordatorio de control). Con "todas las sedes" y varias
+  // sedes queda vacía y el recordatorio usa la sede más antigua.
+  const { sede } = await sedeParaRegistrar();
   const { error } = await supabase
     .from("recetas")
-    .insert({ ...r.data, optica_id: optica.id, paciente_id: pacienteId });
+    .insert({ ...r.data, optica_id: optica.id, paciente_id: pacienteId, sede_id: sede?.id ?? null });
   if (error) return { error: mensajeDb(error), valores };
 
   revalidatePath("/panel/pacientes", "layout");

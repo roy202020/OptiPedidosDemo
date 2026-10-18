@@ -417,3 +417,11 @@ enabled = true
 # Aviso por WhatsApp de órdenes listas (ver supabase/functions/.env.example)
 [functions.enviar-whatsapp]
 verify_jwt = true
+
+# Recordatorios de control (los llama la tarea programada, no el navegador)
+[functions.enviar-recordatorios]
+verify_jwt = false
+
+# Webhook de Meta: público, pero cada evento se verifica con la firma X-Hub-Signature-256
+[functions.whatsapp-webhook]
+verify_jwt = false

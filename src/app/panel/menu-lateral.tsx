@@ -1,7 +1,7 @@
 "use client";
 
 import type { LucideIcon } from "lucide-react";
-import { Boxes, ClipboardList, FlaskConical, LayoutDashboard, LogOut, Menu, Settings, TrendingUp, Users, X } from "lucide-react";
+import { BellRing, Boxes, ClipboardList, FlaskConical, LayoutDashboard, LogOut, Menu, Settings, TrendingUp, Users, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -16,6 +16,7 @@ const ITEMS: Item[] = [
   { href: "/panel", texto: "Panel", icono: LayoutDashboard },
   { href: "/panel/ordenes", texto: "Órdenes", icono: ClipboardList },
   { href: "/panel/pacientes", texto: "Pacientes", icono: Users },
+  { href: "/panel/recordatorios", texto: "Recordatorios", icono: BellRing },
   { href: "/panel/inventario", texto: "Inventario", icono: Boxes },
   { href: "/panel/laboratorios", texto: "Laboratorios", icono: FlaskConical },
   { href: "/panel/ventas", texto: "Ventas y metas", icono: TrendingUp, roles: PERMISOS.verVentas },

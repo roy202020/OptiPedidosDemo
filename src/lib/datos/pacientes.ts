@@ -19,6 +19,9 @@ export type Paciente = {
   email: string | null;
   notas: string | null;
   acepta_whatsapp: boolean;
+  acepta_recordatorios: boolean;
+  fecha_consentimiento: string | null;
+  fecha_baja: string | null;
   whatsapp_consentimiento_en: string | null;
   archivado_en: string | null;
   creado_en: string;

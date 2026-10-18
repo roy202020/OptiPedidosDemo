@@ -64,6 +64,20 @@ export function FormularioPaciente({ accion, inicial = {}, textoBoton, cancelar,
             </span>
           </span>
         </label>
+        <label className="flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm sm:col-span-2">
+          <input
+            type="checkbox"
+            name="acepta_recordatorios"
+            defaultChecked={v.acepta_recordatorios === "on" || v.acepta_recordatorios === "true"}
+            className="mt-0.5 size-4 accent-marca-700"
+          />
+          <span>
+            <span className="font-medium text-slate-800">Acepta recordatorios de su control visual anual por WhatsApp</span>
+            <span className="block text-xs text-slate-500">
+              Mensaje promocional aparte del aviso de lentes listos. Puede darse de baja cuando quiera respondiendo BAJA.
+            </span>
+          </span>
+        </label>
         <AreaTexto nombre="notas" etiqueta="Notas" maxLength={1000} className="sm:col-span-2" defaultValue={v.notas} errores={e.notas} />
       </Seccion>
 

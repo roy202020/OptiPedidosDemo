@@ -138,6 +138,14 @@ async function Detalle({ params }: Pick<PageProps<"/panel/pacientes/[id]">, "par
                   ),
                 },
                 {
+                  titulo: "Recordatorio de control",
+                  valor: p.acepta_recordatorios
+                    ? `Autorizado el ${fecha(p.fecha_consentimiento)}`
+                    : p.fecha_baja
+                      ? `De baja desde el ${fecha(p.fecha_baja)}`
+                      : "No autorizado",
+                },
+                {
                   titulo: "Avisos por WhatsApp",
                   valor: p.acepta_whatsapp ? `Autorizados el ${fecha(p.whatsapp_consentimiento_en)}` : "No autorizados",
                 },

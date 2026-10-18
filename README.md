@@ -26,7 +26,7 @@ Migraciones nuevas sobre una base local con datos: `npx supabase migration up --
 
 ```bash
 npm test            # todo: base de datos + API + unitarias
-npm run test:db     # pgTAP: RLS, reglas de negocio, órdenes, ventas, avisos, administración, inventario
+npm run test:db     # pgTAP: RLS, reglas de negocio, órdenes, ventas, avisos, administración, inventario, sedes, recordatorios
 npm run test:api    # Vitest: aislamiento por la API REST real (requiere Supabase local) y unitarias
 ```
 
@@ -64,6 +64,7 @@ tests/                   pruebas Vitest (api/, unit/)
 | `20261017100000_orden_pagos` | Tabla `orden_pagos` (adelantos y saldo), control de saldo, anulación con motivo |
 | `20261017200000_caja_saldos` | Columna calculada `saldo` de cada orden y `caja_del_dia()` |
 | `20261018000000_sedes` | Tablas `sedes` y `miembro_sedes`, `sede_id` en pedidos, stock, caja, metas y avisos, RLS por sede, informes por sede y `reporte_consolidado()` |
+| `20261019000000_recordatorios_control` | Consentimiento de recordatorios en pacientes, sede en recetas, plan y tope en ópticas, historial `recordatorios_envios`, envío y webhook, tarea diaria (pg_cron) |
 
 Ninguna migración borra tablas, columnas ni datos. La 0004 rellena `confirmada_en` de órdenes ya confirmadas
 desde su historial.
@@ -172,6 +173,52 @@ Jerarquía: **óptica (empresa) → sedes → usuarios**.
 - **Consolidado** (Ventas y metas, solo propietario): ventas, pedidos, metas, cobros y saldos del mes por sede y total.
 - Pantalla **Administración → Sedes**: el propietario crea y desactiva sedes y asigna usuarios; el administrador
   edita los datos de contacto de sus sedes.
+
+## Recordatorios de control visual
+
+Recuerda al paciente su control anual por WhatsApp, a partir de su **última receta vigente** (fecha de examen) más
+`opticas.recordatorio_meses` (12 por defecto; lo cambian propietario y administrador en la pantalla Recordatorios).
+
+- **Consentimiento aparte** del aviso "lentes listos": `pacientes.acepta_recordatorios`, con `fecha_consentimiento` y
+  `fecha_baja` fijadas por el servidor. Quitar la casilla o responder **BAJA** marca la baja. La baja solo detiene
+  los recordatorios; el aviso de lentes listos sigue.
+- **No se envía** si no hay consentimiento, si hay una receta más reciente (ese es otro ciclo), si el paciente está
+  archivado o se dio de baja, o si ya recibió el recordatorio del ciclo (`unique (paciente_id, receta_id)` en
+  `recordatorios_envios`).
+- **Sede**: sale del número de WhatsApp de la sede de la última evaluación (`recetas.sede_id`). Si la receta no tiene
+  sede, de la sede más antigua; si la sede no tiene número propio, del número por defecto.
+- **Pantalla "Pacientes por recordar este mes"** (menú Recordatorios): controles que vencen este mes o vencieron hace
+  hasta 90 días sin recordatorio, filtro por sede y botón **WhatsApp** (wa.me desde tu teléfono), que registra un envío
+  manual y cierra el ciclo. Los envíos manuales no cuentan para el tope.
+- **Envío automático** (solo plan **Profesional**, lo activa el propietario): una tarea `pg_cron` llama cada día a las
+  10:00 de Lima a la Edge Function `enviar-recordatorios`. Solo envía entre 9:00 y 19:00 de Lima y respeta
+  `opticas.tope_mensajes_mes`, que cuenta todo lo enviado por la API en el mes (avisos y recordatorios). Al llegar
+  al tope se frenan los recordatorios; los avisos de lentes listos nunca. Un fallo se reintenta hasta 3 veces.
+- **Plan y tope** los cambia solo la plataforma (por SQL o en el panel de Supabase); la app no tiene permiso para
+  editarlos. Ejemplo: `update opticas set plan = 'profesional', tope_mensajes_mes = 2000 where id = '…';`
+- **Historial** en `recordatorios_envios`: canal (automático o manual), estado (pendiente, enviado, fallido,
+  entregado), intentos, error e id del mensaje de Meta. Lo lee cada usuario según su óptica y sus sedes; nadie lo
+  escribe desde la API.
+
+### Configuración pendiente (para envíos automáticos reales)
+
+1. En Meta, crea una plantilla de categoría **Marketing**, idioma Español (es), nombre `recordatorio_control`, con un
+   cuerpo como `Hola, {{1}}. Te saluda {{2}}. Ya es momento de tu control visual anual. Responde a este mensaje para
+   separar tu cita.`, y agrégale el botón de **baja de marketing** (o una respuesta rápida "Darme de baja").
+2. Webhook: en la app de Meta (WhatsApp → Configuración) usa como URL de devolución
+   `https://<proyecto>.supabase.co/functions/v1/whatsapp-webhook`, un token de verificación que elijas, y suscríbete a
+   **messages**.
+3. Secretos y despliegue:
+   ```bash
+   npx supabase secrets set WHATSAPP_APP_SECRET=... WHATSAPP_VERIFY_TOKEN=... RECORDATORIOS_CRON_SECRET=...
+   npx supabase functions deploy enviar-recordatorios whatsapp-webhook
+   ```
+4. Para que la tarea diaria encuentre la función, guarda en Vault (SQL editor de Supabase) la URL y el mismo secreto:
+   ```sql
+   select vault.create_secret('https://<proyecto>.supabase.co/functions/v1/enviar-recordatorios', 'recordatorios_url');
+   select vault.create_secret('<el mismo RECORDATORIOS_CRON_SECRET>', 'recordatorios_secreto');
+   ```
+   Sin esos dos secretos la tarea no hace nada.
 
 ## Roles y permisos
 

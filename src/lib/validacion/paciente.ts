@@ -22,6 +22,8 @@ export const esquemaPaciente = z
     notas: textoOpcional(1000),
     // Checkbox: llega "on" si está marcado y no llega si no.
     acepta_whatsapp: z.preprocess((v) => v === "on" || v === "true" || v === true, z.boolean()),
+    // Recordatorios de control (marketing): consentimiento aparte del aviso "lentes listos".
+    acepta_recordatorios: z.preprocess((v) => v === "on" || v === "true" || v === true, z.boolean()),
   })
   .superRefine((p, ctx) => {
     if (!p.numero_documento) return;

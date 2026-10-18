@@ -25,6 +25,7 @@ async function Edicion({ params }: Pick<PageProps<"/panel/pacientes/[id]/editar"
     ),
   );
   inicial.acepta_whatsapp = p.acepta_whatsapp ? "on" : "";
+  inicial.acepta_recordatorios = p.acepta_recordatorios ? "on" : "";
 
   return (
     <>

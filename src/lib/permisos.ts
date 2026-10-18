@@ -19,6 +19,10 @@ export const PERMISOS = {
   gestionarSedes: ["propietario"],
   /** Reporte consolidado de todas las sedes. */
   verConsolidado: ["propietario"],
+  /** Intervalo de los recordatorios de control. */
+  configurarRecordatorios: ["propietario", "administrador"],
+  /** Activar el envío automático de recordatorios (además exige el plan Profesional). */
+  activarRecordatoriosAutomaticos: ["propietario"],
   /** Alta, rol y desactivación de miembros. */
   gestionarMiembros: ["propietario"],
 } as const satisfies Record<string, readonly Rol[]>;
