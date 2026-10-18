@@ -1,7 +1,8 @@
 import { Building2, CalendarDays, Receipt, Target, TrendingDown, TrendingUp } from "lucide-react";
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { BarraProgreso, Cargando, Encabezado, EnlaceBoton, Indicador, Insignia, Tabla, Tarjeta, Td, Th } from "@/components/ui";
+import { BarraProgreso, Cargando, Encabezado, EnlaceBoton, Indicador, Insignia, SoloProfesional, Tabla, Tarjeta, Td, Th } from "@/components/ui";
+import { obtenerSuscripcion } from "@/lib/datos/suscripcion";
 import { cajaDelDia, cumplimiento, reporteConsolidado, variacion, ventasDelDia, ventasMensuales } from "@/lib/datos/ventas";
 import { mes, soles } from "@/lib/formato";
 import { MEDIOS_PAGO, type MedioPago } from "@/lib/ordenes/pagos";
@@ -30,7 +31,14 @@ const porcentaje = (n: number) => `${n.toLocaleString("es-PE", { maximumFraction
 
 async function Contenido() {
   const optica = await exigirPermiso("verVentas");
-  const [meses, hoy, caja, { actual: sede }] = await Promise.all([ventasMensuales(12), ventasDelDia(), cajaDelDia(), obtenerSedeActual()]);
+  const [meses, hoy, caja, { actual: sede }, suscripcion] = await Promise.all([
+    ventasMensuales(12),
+    ventasDelDia(),
+    cajaDelDia(),
+    obtenerSedeActual(),
+    obtenerSuscripcion(),
+  ]);
+  const conMetas = suscripcion.incluye.metas;
   const [actual, anterior] = meses;
   const c = cumplimiento(actual.ventas, actual.meta);
   const v = variacion(actual.ventas, anterior?.ventas);
@@ -58,11 +66,19 @@ async function Contenido() {
           icono={v != null && v < 0 ? TrendingDown : TrendingUp}
           tono={v != null && v < 0 ? "ambar" : "verde"}
         />
-        <Indicador titulo="Meta del mes" valor={actual.meta ? soles(actual.meta) : "Sin meta"} icono={Target} tono="violeta" />
+        <Indicador
+          titulo="Meta del mes"
+          valor={actual.meta ? soles(actual.meta) : "Sin meta"}
+          detalle={conMetas ? undefined : "Disponible en plan Profesional"}
+          icono={Target}
+          tono="violeta"
+        />
         <Indicador
           titulo="Falta para la meta"
           valor={c ? soles(c.falta) : "—"}
-          detalle={c ? (c.falta === 0 ? "Meta alcanzada" : `${porcentaje(c.porcentaje)} cumplido`) : "Define una meta para este mes"}
+          detalle={
+            c ? (c.falta === 0 ? "Meta alcanzada" : `${porcentaje(c.porcentaje)} cumplido`) : conMetas ? "Define una meta para este mes" : "Metas: plan Profesional"
+          }
           icono={CalendarDays}
           tono={c && c.falta === 0 ? "verde" : "neutro"}
         />
@@ -123,7 +139,9 @@ async function Contenido() {
         </Tarjeta>
 
         <Tarjeta titulo="Meta mensual" descripcion={sede ? `Importe objetivo de ventas netas de la sede ${sede.nombre}.` : "Importe objetivo de ventas netas."}>
-          {!tienePermiso(optica.rol, "configurarMetas") ? (
+          {!conMetas ? (
+            <SoloProfesional>Fija metas mensuales por sede y sigue su cumplimiento.</SoloProfesional>
+          ) : !tienePermiso(optica.rol, "configurarMetas") ? (
             <p className="text-sm text-slate-500">Tu rol no permite configurar metas.</p>
           ) : sede ? (
             <FormularioMeta

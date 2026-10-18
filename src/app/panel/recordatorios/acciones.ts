@@ -5,6 +5,7 @@ import { z } from "zod";
 import type { EstadoFormulario } from "@/lib/estado-formulario";
 import { mensajeDb } from "@/lib/errores-db";
 import { tienePermiso } from "@/lib/permisos";
+import { obtenerSuscripcion } from "@/lib/datos/suscripcion";
 import { exigirOptica, exigirPermiso } from "@/lib/sesion";
 import { crearClienteServidor } from "@/lib/supabase/servidor";
 
@@ -33,7 +34,13 @@ export async function guardarConfiguracion(_previo: EstadoFormulario, datos: For
 
   const cambios: { recordatorio_meses: number; recordatorios_automaticos?: boolean } = { recordatorio_meses: r.data.recordatorio_meses };
   // Solo el propietario toca el interruptor; la base lo vuelve a comprobar junto con el plan.
-  if (tienePermiso(optica.rol, "activarRecordatoriosAutomaticos")) cambios.recordatorios_automaticos = r.data.recordatorios_automaticos;
+  if (tienePermiso(optica.rol, "activarRecordatoriosAutomaticos")) {
+    // La base también lo rechaza (f_optica_recordatorios); aquí se avisa antes.
+    if (r.data.recordatorios_automaticos && !(await obtenerSuscripcion()).incluye.recordatorios) {
+      return { error: "El envío automático de recordatorios requiere el plan Profesional.", valores };
+    }
+    cambios.recordatorios_automaticos = r.data.recordatorios_automaticos;
+  }
 
   const supabase = await crearClienteServidor();
   const { error } = await supabase.from("opticas").update(cambios).eq("id", optica.id);

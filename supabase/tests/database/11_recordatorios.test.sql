@@ -123,13 +123,13 @@ select is(public.reclamar_recordatorio('2a000000-0000-0000-0000-000000000006', '
 select is(public.registrar_baja_whatsapp('1111111111', '987000099'), 0, 'una baja no toca pacientes de otra óptica');
 
 -- Tope mensual: cuentan los mensajes por API del mes (avisos + recordatorios automáticos).
-update opticas set tope_mensajes_mes = 1 where id = 'a0000000-0000-0000-0000-00000000000a';
+update opticas set whatsapp_mensual = 1 where id = 'a0000000-0000-0000-0000-00000000000a';
 select is(public.mensajes_del_mes('a0000000-0000-0000-0000-00000000000a', (select a_las_10 from f)), 1, 'ya se usó 1 mensaje este mes');
 select is_empty($$ select * from public.recordatorios_para_enviar((select a_las_10 from f)) where optica_id = 'a0000000-0000-0000-0000-00000000000a' $$,
   'con el tope alcanzado no hay más candidatos');
 select is(public.reclamar_recordatorio('2a000000-0000-0000-0000-000000000007', '3a000000-0000-0000-0000-000000000007', (select a_las_10 from f)), null,
   'con el tope alcanzado no se reclama ningún envío');
-update opticas set tope_mensajes_mes = 100 where id = 'a0000000-0000-0000-0000-00000000000a';
+update opticas set whatsapp_mensual = 300 where id = 'a0000000-0000-0000-0000-00000000000a';
 
 -- ---------------------------------------------------------------------------
 -- 3. Desde la app (usuarios autenticados)

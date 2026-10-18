@@ -17,7 +17,9 @@ import {
   numeroOrden,
   type EstadoInterno,
 } from "@/lib/ordenes/estados";
+import { obtenerSuscripcion } from "@/lib/datos/suscripcion";
 import { avisoDeOrden, type Aviso } from "@/lib/notificaciones";
+import { enlaceLentesListos } from "@/lib/ordenes/mensaje-paciente";
 import { enlaceWhatsAppLaboratorio } from "@/lib/ordenes/mensaje-laboratorio";
 import { exigirOptica } from "@/lib/sesion";
 import { crearClienteServidor } from "@/lib/supabase/servidor";
@@ -51,7 +53,12 @@ async function Detalle({ params, searchParams }: Props) {
     OI: typeof sp.lunas_OI === "string" ? sp.lunas_OI : undefined,
   };
   const { orden: o, usuario } = await obtenerOrden(id);
-  const [transiciones, aviso, optica] = await Promise.all([transicionesDesde(o.estado), avisoDeOrden(id), exigirOptica()]);
+  const [transiciones, aviso, optica, suscripcion] = await Promise.all([
+    transicionesDesde(o.estado),
+    avisoDeOrden(id),
+    exigirOptica(),
+    obtenerSuscripcion(),
+  ]);
   const supabase = await crearClienteServidor();
   const { data: datosOptica } = await supabase.from("opticas").select("nombre, telefono").eq("id", optica.id).single();
   const whatsapp = enlaceWhatsAppLaboratorio(o, {
@@ -287,7 +294,18 @@ async function Detalle({ params, searchParams }: Props) {
             </p>
           </Tarjeta>
 
-          {aviso && <TarjetaAviso aviso={aviso} ordenId={id} />}
+          {aviso && (
+            <TarjetaAviso
+              aviso={aviso}
+              ordenId={id}
+              // Plan Básico: sin WhatsApp por API, se avisa a mano desde el teléfono de la óptica.
+              manual={
+                suscripcion.incluye.whatsapp_api
+                  ? undefined
+                  : { url: enlaceLentesListos(o.paciente, numeroOrden(o.numero), `${datosOptica?.nombre ?? optica.nombre} (sede ${o.sede.nombre})`) }
+              }
+            />
+          )}
 
           <Tarjeta titulo="Paciente">
             <Link href={`/panel/pacientes/${o.paciente.id}`} className="font-medium text-marca-800 hover:underline">
@@ -456,7 +474,7 @@ const AVISO: Record<Aviso["estado"], { texto: string; tono: "neutro" | "azul" | 
 };
 
 /** Estado del aviso por WhatsApp de "lentes listos", con reintento si falló o se omitió. */
-function TarjetaAviso({ aviso: a, ordenId }: { aviso: Aviso; ordenId: string }) {
+function TarjetaAviso({ aviso: a, ordenId, manual }: { aviso: Aviso; ordenId: string; manual?: { url: string | null } }) {
   const telefono = a.telefono ? `+${a.telefono.slice(0, 2)} ${a.telefono.slice(2)}` : null;
   return (
     <Tarjeta titulo="Aviso por WhatsApp" acciones={<Insignia tono={AVISO[a.estado].tono} icono={MessageCircle}>{AVISO[a.estado].texto}</Insignia>}>
@@ -467,7 +485,19 @@ function TarjetaAviso({ aviso: a, ordenId }: { aviso: Aviso; ordenId: string }) 
         {a.ultimo_error && <p className={a.estado === "fallida" ? "text-red-700" : "text-amber-800"}>{a.ultimo_error}</p>}
         {a.intentos > 0 && <p className="text-xs text-slate-500">Intentos: {a.intentos}{a.ultimo_intento_en ? ` · último ${fechaHora(a.ultimo_intento_en)}` : ""}</p>}
       </div>
-      {(a.estado === "fallida" || a.estado === "omitida") && (
+      {manual ? (
+        <div className="mt-3 flex flex-col gap-2">
+          {manual.url ? (
+            <a href={manual.url} target="_blank" rel="noopener noreferrer" className={claseBoton("primario", "sm")}>
+              <MessageCircle aria-hidden className="size-4" />
+              Avisar al paciente por WhatsApp
+            </a>
+          ) : (
+            <p className="text-sm text-amber-800">El paciente no tiene un celular válido: avísale por otro medio.</p>
+          )}
+          <p className="text-xs text-slate-500">Envío automático: disponible en plan Profesional.</p>
+        </div>
+      ) : (a.estado === "fallida" || a.estado === "omitida") && (
         <div className="mt-3">
           <Confirmacion
             accion={reintentarAviso.bind(null, a.id, ordenId)}

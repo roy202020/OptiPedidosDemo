@@ -120,3 +120,21 @@ export async function sedeParaRegistrar(): Promise<{ sede: Sede; error?: undefin
   const { sedes, actual } = await obtenerSedeActual();
   return sedeDeRegistro(sedes, actual);
 }
+
+// ------------------------------------------------------------------ plataforma
+
+/** El usuario es superadmin de la plataforma (tabla superadmins, cargada solo por SQL). */
+export const esSuperadmin = cache(async (): Promise<boolean> => {
+  await obtenerUsuario();
+  const supabase = await crearClienteServidor();
+  const { data, error } = await supabase.rpc("es_superadmin");
+  if (error) throw new Error(`No se pudo comprobar el acceso: ${error.message}`);
+  return data === true;
+});
+
+/** Para el panel de la plataforma: quien no es superadmin vuelve a su panel. Las funciones lo revalidan. */
+export async function exigirSuperadmin(): Promise<Usuario> {
+  const [usuario, es] = await Promise.all([obtenerUsuario(), esSuperadmin()]);
+  if (!es) redirect("/panel");
+  return usuario;
+}

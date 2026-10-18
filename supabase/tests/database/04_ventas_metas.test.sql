@@ -13,9 +13,9 @@ insert into auth.users (id, email, aud, role) values
   ('aaaaaaaa-0000-0000-0000-000000000001', 'a1@prueba.test', 'authenticated', 'authenticated'),
   ('aaaaaaaa-0000-0000-0000-000000000002', 'a2@prueba.test', 'authenticated', 'authenticated'),
   ('bbbbbbbb-0000-0000-0000-000000000001', 'b1@prueba.test', 'authenticated', 'authenticated');
-insert into opticas (id, nombre) values
-  ('a0000000-0000-0000-0000-00000000000a', 'Óptica Ficticia A'),
-  ('b0000000-0000-0000-0000-00000000000b', 'Óptica Ficticia B');
+insert into opticas (id, nombre, plan) values  -- plan Profesional: usa funciones de ese plan (0012)
+  ('a0000000-0000-0000-0000-00000000000a', 'Óptica Ficticia A', 'profesional'),
+  ('b0000000-0000-0000-0000-00000000000b', 'Óptica Ficticia B', 'profesional');
 insert into miembros (optica_id, usuario_id, rol) values
   ('a0000000-0000-0000-0000-00000000000a', 'aaaaaaaa-0000-0000-0000-000000000001', 'propietario'),
   ('a0000000-0000-0000-0000-00000000000a', 'aaaaaaaa-0000-0000-0000-000000000002', 'operador'),

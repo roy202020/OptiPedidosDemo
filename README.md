@@ -65,6 +65,7 @@ tests/                   pruebas Vitest (api/, unit/)
 | `20261017200000_caja_saldos` | Columna calculada `saldo` de cada orden y `caja_del_dia()` |
 | `20261018000000_sedes` | Tablas `sedes` y `miembro_sedes`, `sede_id` en pedidos, stock, caja, metas y avisos, RLS por sede, informes por sede y `reporte_consolidado()` |
 | `20261019000000_recordatorios_control` | Consentimiento de recordatorios en pacientes, sede en recetas, plan y tope en ópticas, historial `recordatorios_envios`, envío y webhook, tarea diaria (pg_cron) |
+| `20261020000000_suscripciones` | Tabla `planes`, plan/estado/vencimiento/límites en ópticas, superadmin, modo solo lectura, límites de usuarios y sedes, tope de WhatsApp por sede, pagos e historial de la suscripción |
 
 Ninguna migración borra tablas, columnas ni datos. La 0004 rellena `confirmada_en` de órdenes ya confirmadas
 desde su historial.
@@ -192,10 +193,10 @@ Recuerda al paciente su control anual por WhatsApp, a partir de su **última rec
   manual y cierra el ciclo. Los envíos manuales no cuentan para el tope.
 - **Envío automático** (solo plan **Profesional**, lo activa el propietario): una tarea `pg_cron` llama cada día a las
   10:00 de Lima a la Edge Function `enviar-recordatorios`. Solo envía entre 9:00 y 19:00 de Lima y respeta
-  `opticas.tope_mensajes_mes`, que cuenta todo lo enviado por la API en el mes (avisos y recordatorios). Al llegar
-  al tope se frenan los recordatorios; los avisos de lentes listos nunca. Un fallo se reintenta hasta 3 veces.
-- **Plan y tope** los cambia solo la plataforma (por SQL o en el panel de Supabase); la app no tiene permiso para
-  editarlos. Ejemplo: `update opticas set plan = 'profesional', tope_mensajes_mes = 2000 where id = '…';`
+  el tope de WhatsApp automáticos **de cada sede** (`opticas.whatsapp_mensual`, ver Planes). Un fallo se reintenta
+  hasta 3 veces.
+- **Plan y tope** los cambia solo el superadmin de la plataforma (panel `/superadmin`); la app de la óptica no tiene
+  permiso para editarlos. `opticas.tope_mensajes_mes` quedó en desuso (se conserva, pero no se usa).
 - **Historial** en `recordatorios_envios`: canal (automático o manual), estado (pendiente, enviado, fallido,
   entregado), intentos, error e id del mensaje de Meta. Lo lee cada usuario según su óptica y sus sedes; nadie lo
   escribe desde la API.
@@ -219,6 +220,59 @@ Recuerda al paciente su control anual por WhatsApp, a partir de su **última rec
    select vault.create_secret('<el mismo RECORDATORIOS_CRON_SECRET>', 'recordatorios_secreto');
    ```
    Sin esos dos secretos la tarea no hace nada.
+
+## Planes y suscripción
+
+| | Básico | Profesional |
+|---|:-:|:-:|
+| Sedes activas | 1 | según contrato |
+| Usuarios activos | 3 | sin límite |
+| WhatsApp | solo manual (wa.me) | 300 automáticos por sede al mes, más los manuales |
+| Metas de ventas | — | ✓ |
+| Recordatorios automáticos | — (manuales sí) | ✓ |
+
+- Los valores por defecto de cada plan están en la tabla `planes`. Cada óptica guarda su copia en `opticas`
+  (`plan`, `vence_el`, `max_usuarios`, `max_sedes`, `whatsapp_mensual`), así el superadmin puede ajustar un contrato
+  (por ejemplo, 3 sedes) sin tocar el plan. `null` en un límite significa "sin límite".
+- **Se valida en la base** (triggers y funciones), además de en la interfaz y las Server Actions: un 4.º usuario o una
+  2.ª sede en Básico, las metas y el envío automático fallan aunque se llame directo a la API.
+- **Aviso "lentes listos" en Básico**: no se envía por API. La notificación queda "No enviado (plan Básico)" y la orden
+  muestra el botón **Avisar al paciente por WhatsApp** (wa.me).
+- **Tope por sede**: cuenta los avisos y recordatorios automáticos enviados en el mes (hora de Lima). Al llegar al
+  tope, los siguientes automáticos de esa sede quedan "fallidos" con el motivo; los manuales siguen.
+
+### Vencimiento
+
+El estado depende solo de `vence_el` (`estado_suscripcion_de()`; una tarea diaria guarda una copia en
+`opticas.estado_suscripcion` para los listados):
+
+| Estado | Cuándo | Qué pasa |
+|---|---|---|
+| Activa | hasta el día de vencimiento | aviso en el panel desde 5 días antes |
+| En gracia | 7 días después de vencer | todo funciona, con aviso en rojo |
+| Suspendida | desde el 8.º día | **solo lectura**: se ve y se exporta todo, no se registra nada (lo bloquea el trigger `t_00_suscripcion`) |
+
+Nunca se borran datos. Al registrar un pago o extender el vencimiento, la óptica vuelve a escribir al instante.
+Las ópticas que se registran solas empiezan en **Básico con 14 días** de prueba; las que existían antes de la 0012
+conservaron su plan con vencimiento a 30 días.
+
+### Superadmin de la plataforma
+
+Rol aparte de los de las ópticas (tabla `superadmins`). Panel en **`/superadmin`**: crear ópticas (el propietario debe
+tener cuenta), cambiar plan y límites, registrar pagos (monto, fecha, Yape o transferencia, periodo; por defecto
+extiende el vencimiento hasta el fin del periodo), cambiar el vencimiento y ver las ópticas por vencer, en gracia o
+suspendidas. Todo queda en `suscripcion_eventos` y `suscripcion_pagos`, que no se pueden editar ni borrar. El
+propietario de cada óptica ve su plan y sus pagos en **Administración**.
+
+El superadmin **no** ve pacientes, recetas ni pedidos: no es miembro de ninguna óptica y RLS no le da acceso.
+
+Se designa solo por SQL (SQL Editor de Supabase, o `npx supabase db query` en local), con el correo de una cuenta ya
+creada:
+
+```sql
+insert into public.superadmins (usuario_id)
+select id from auth.users where email = 'correo@ejemplo.com';
+```
 
 ## Roles y permisos
 

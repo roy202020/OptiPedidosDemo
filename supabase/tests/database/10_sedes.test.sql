@@ -22,9 +22,9 @@ insert into auth.users (id, email, aud, role) values
   ('dddddddd-0000-0000-0000-000000000003', 'venc@zamora.test', 'authenticated', 'authenticated'),
   ('dddddddd-0000-0000-0000-000000000004', 'venn@zamora.test', 'authenticated', 'authenticated'),
   ('eeeeeeee-0000-0000-0000-000000000001', 'otro@otra.test',   'authenticated', 'authenticated');
-insert into opticas (id, nombre) values
-  ('d0000000-0000-0000-0000-00000000000d', 'Óptica Zamora'),
-  ('e0000000-0000-0000-0000-00000000000e', 'Óptica Otra');
+insert into opticas (id, nombre, plan) values  -- plan Profesional: varias sedes (0012)
+  ('d0000000-0000-0000-0000-00000000000d', 'Óptica Zamora', 'profesional'),
+  ('e0000000-0000-0000-0000-00000000000e', 'Óptica Otra', 'profesional');
 
 select is((select count(*)::int from sedes where optica_id = 'd0000000-0000-0000-0000-00000000000d'), 1,
   'toda óptica nueva nace con su sede principal');

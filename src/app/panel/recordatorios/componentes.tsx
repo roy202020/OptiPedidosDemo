@@ -82,7 +82,7 @@ export function FormularioConfiguracion({
           <span className="font-medium text-slate-800">Envío automático diario</span>
           <span className="block text-xs text-slate-500">
             {!esProfesional
-              ? "Disponible en el plan Profesional."
+              ? "Disponible en plan Profesional."
               : !puedeActivar
                 ? "Solo el propietario lo activa o desactiva."
                 : "A las 10:00 (hora de Lima), desde el número de cada sede, respetando el tope del mes."}

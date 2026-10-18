@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { Marca } from "@/components/marca";
 import { Cargando } from "@/components/ui";
-import { obtenerOpticaActual } from "@/lib/sesion";
+import { esSuperadmin, obtenerOpticaActual } from "@/lib/sesion";
 import { FormularioOptica } from "./formulario-optica";
 
 export const metadata: Metadata = { title: "Registrar óptica" };
@@ -31,5 +31,7 @@ export default function PaginaNuevaOptica() {
 
 async function SoloSinOptica() {
   if (await obtenerOpticaActual()) redirect("/panel");
+  // El superadmin de la plataforma no registra ópticas propias: va a su panel.
+  if (await esSuperadmin()) redirect("/superadmin");
   return <FormularioOptica />;
 }
