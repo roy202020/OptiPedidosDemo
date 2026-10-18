@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Gem } from "lucide-react";
 import Link from "next/link";
 
 /**
@@ -264,6 +264,20 @@ export function Indicador({
     </Link>
   ) : (
     <div className={clase}>{contenido}</div>
+  );
+}
+
+/** Función que el plan de la óptica no incluye (la base también la rechaza). */
+export function SoloProfesional({ children, compacto }: { children?: React.ReactNode; compacto?: boolean }) {
+  if (compacto) return <Insignia tono="violeta" icono={Gem}>Disponible en plan Profesional</Insignia>;
+  return (
+    <div className="flex items-start gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2.5 text-sm text-violet-900">
+      <Gem aria-hidden className="mt-0.5 size-4 shrink-0" />
+      <div>
+        <p className="font-medium">Disponible en plan Profesional</p>
+        {children && <div className="text-violet-800">{children}</div>}
+      </div>
+    </div>
   );
 }
 

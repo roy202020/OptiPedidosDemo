@@ -1,8 +1,9 @@
 import { Building2, Power, PowerOff } from "lucide-react";
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { Confirmacion } from "@/components/formulario";
-import { Cargando, Encabezado, Insignia, Tarjeta } from "@/components/ui";
+import { Alerta, Confirmacion } from "@/components/formulario";
+import { Cargando, Encabezado, Insignia, SoloProfesional, Tarjeta } from "@/components/ui";
+import { obtenerSuscripcion } from "@/lib/datos/suscripcion";
 import { NOMBRE_ROL, tienePermiso, type Rol } from "@/lib/permisos";
 import { exigirPermiso, obtenerSedes } from "@/lib/sesion";
 import { crearClienteServidor } from "@/lib/supabase/servidor";
@@ -31,7 +32,9 @@ type Miembro = { usuario_id: string; email: string; rol: Rol; activo: boolean };
 async function Contenido() {
   const optica = await exigirPermiso("administrarOptica");
   const gestiona = tienePermiso(optica.rol, "gestionarSedes");
-  const sedes = await obtenerSedes();
+  const [sedes, suscripcion] = await Promise.all([obtenerSedes(), obtenerSuscripcion()]);
+  const activas = sedes.filter((s) => s.activa).length;
+  const alLimite = suscripcion.max_sedes != null && activas >= suscripcion.max_sedes;
 
   return (
     <div className="flex flex-col gap-6">
@@ -82,8 +85,18 @@ async function Contenido() {
 
       {gestiona && (
         <>
-          <Tarjeta titulo="Nueva sede" className="max-w-4xl">
-            <FormularioSede accion={crearSede} nueva />
+          <Tarjeta
+            titulo="Nueva sede"
+            descripcion={suscripcion.max_sedes != null ? `${activas} de ${suscripcion.max_sedes} sedes activas en tu plan.` : undefined}
+            className="max-w-4xl"
+          >
+            {!alLimite ? (
+              <FormularioSede accion={crearSede} nueva />
+            ) : suscripcion.plan === "basico" ? (
+              <SoloProfesional>El plan Básico incluye una sede. En Profesional, las sedes van según contrato.</SoloProfesional>
+            ) : (
+              <Alerta tipo="info">Llegaste a las {suscripcion.max_sedes} sedes de tu contrato. Escríbenos para ampliarlo.</Alerta>
+            )}
           </Tarjeta>
           <Suspense fallback={<Cargando alto="h-48" />}>
             <Asignaciones opticaId={optica.id} sedes={sedes} />

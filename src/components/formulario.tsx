@@ -2,7 +2,7 @@
 
 import type { LucideIcon } from "lucide-react";
 import { CircleAlert, CircleCheck, Info, LoaderCircle, X } from "lucide-react";
-import { useActionState, useEffect, useId, useRef } from "react";
+import { createContext, useActionState, useContext, useEffect, useId, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import type { EstadoFormulario } from "@/lib/estado-formulario";
 import { Boton, claseBoton, claseControl, type VarianteBoton } from "./ui";
@@ -150,6 +150,30 @@ export function Seccion({ titulo, descripcion, children }: { titulo: string; des
   );
 }
 
+// ------------------------------------------------------------------ solo lectura
+
+/**
+ * Suscripción suspendida: los botones de guardar se desactivan. Es solo una ayuda visual;
+ * la base rechaza igual cualquier registro (trigger t_00_suscripcion).
+ */
+const SoloLectura = createContext<{ activo: boolean; fijar: (v: boolean) => void }>({ activo: false, fijar: () => {} });
+
+export const TEXTO_SOLO_LECTURA = "Suscripción suspendida: solo lectura";
+
+export function ProveedorSoloLectura({ children }: { children: React.ReactNode }) {
+  const [activo, fijar] = useState(false);
+  return <SoloLectura.Provider value={{ activo, fijar }}>{children}</SoloLectura.Provider>;
+}
+
+/** Lo renderiza el servidor cuando ya sabe el estado de la suscripción. */
+export function FijarSoloLectura({ activo }: { activo: boolean }) {
+  const { fijar } = useContext(SoloLectura);
+  useEffect(() => fijar(activo), [activo, fijar]);
+  return null;
+}
+
+export const useSoloLectura = () => useContext(SoloLectura).activo;
+
 export function BotonEnviar({
   children,
   pendiente,
@@ -164,8 +188,15 @@ export function BotonEnviar({
   className?: string;
 }) {
   const { pending } = useFormStatus();
+  const soloLectura = useSoloLectura();
   return (
-    <button type="submit" disabled={pending} aria-busy={pending} className={cx(claseBoton(variante), className)}>
+    <button
+      type="submit"
+      disabled={pending || soloLectura}
+      aria-busy={pending}
+      title={soloLectura ? TEXTO_SOLO_LECTURA : undefined}
+      className={cx(claseBoton(variante), className)}
+    >
       {pending ? <LoaderCircle aria-hidden className="size-4 animate-spin" /> : Icono && <Icono aria-hidden className="size-4" />}
       {pending ? pendiente : children}
     </button>
@@ -225,6 +256,7 @@ export function Confirmacion({
   const dialogo = useRef<HTMLDialogElement>(null);
   const idTitulo = useId();
   const [estado, enviar] = useActionState(accion, {} as EstadoFormulario);
+  const soloLectura = useSoloLectura();
 
   useEffect(() => {
     if (estado.listo) dialogo.current?.close();
@@ -232,7 +264,13 @@ export function Confirmacion({
 
   return (
     <>
-      <Boton variante={varianteBoton} tamano={tamanoBoton} onClick={() => dialogo.current?.showModal()}>
+      <Boton
+        variante={varianteBoton}
+        tamano={tamanoBoton}
+        disabled={soloLectura}
+        title={soloLectura ? TEXTO_SOLO_LECTURA : undefined}
+        onClick={() => dialogo.current?.showModal()}
+      >
         {iconoBoton && <span aria-hidden className="[&>svg]:size-4">{iconoBoton}</span>}
         {textoBoton}
       </Boton>

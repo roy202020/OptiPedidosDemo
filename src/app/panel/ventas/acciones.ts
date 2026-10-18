@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { EstadoFormulario } from "@/lib/estado-formulario";
 import { mensajeDb } from "@/lib/errores-db";
+import { obtenerSuscripcion } from "@/lib/datos/suscripcion";
 import { exigirPermiso } from "@/lib/sesion";
 import { crearClienteServidor } from "@/lib/supabase/servidor";
 import { valoresDe } from "@/lib/validacion/comun";
@@ -19,6 +20,8 @@ const mesActual = () =>
  */
 export async function guardarMeta(_previo: EstadoFormulario, datos: FormData): Promise<EstadoFormulario> {
   const optica = await exigirPermiso("configurarMetas");
+  // La base también lo rechaza (trigger t_01_plan); aquí se avisa antes.
+  if (!(await obtenerSuscripcion()).incluye.metas) return { error: "Disponible en plan Profesional: metas de ventas." };
   const valores = valoresDe(datos);
   const sedeId = String(datos.get("sede_id") ?? "");
   if (!z.uuid().safeParse(sedeId).success) return { error: "Elige en el selector de arriba la sede de la meta.", valores };

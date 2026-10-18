@@ -11,6 +11,7 @@
  */
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { beforeAll, describe, expect, it } from "vitest";
+import { pasarAProfesional } from "./plataforma";
 
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 const KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
@@ -156,6 +157,8 @@ describe("módulos de órdenes, ventas, avisos y miembros", () => {
   const correoC = `c-${sufijo}@prueba.test`;
 
   beforeAll(async () => {
+    // Usa metas y avisos automáticos: la plataforma pasa la óptica A al plan Profesional (0012).
+    await pasarAProfesional(URL, opticaA);
     const lab = await a.from("laboratorios").insert({ optica_id: opticaA, nombre: "Lab Ficticio A" }).select("id").single();
     const receta = await a
       .from("recetas")
@@ -286,5 +289,47 @@ describe("inventario de lunas", () => {
   it("nadie edita el stock directamente por la API", async () => {
     const { error } = await a.from("lunas_variantes").update({ stock: 999 }).eq("id", varianteA);
     expect(error?.code).toBe("42501");
+  });
+});
+
+describe("límites del plan Básico por la API", () => {
+  let duena: SupabaseClient;
+  let opticaZ: string;
+
+  beforeAll(async () => {
+    duena = await registrarUsuario("z");
+    const { data, error } = await duena.rpc("crear_optica", { p_nombre: `Óptica Básica Z ${sufijo}` });
+    expect(error).toBeNull();
+    opticaZ = data as string;
+    // Tres cuentas más que la óptica intentará sumar.
+    await Promise.all(["z2", "z3", "z4"].map((n) => registrarUsuario(n)));
+  });
+
+  it("una óptica nueva nace en Básico con vencimiento", async () => {
+    const { data } = await duena.from("opticas").select("plan, max_usuarios, max_sedes, vence_el").eq("id", opticaZ).single();
+    expect(data).toMatchObject({ plan: "basico", max_usuarios: 3, max_sedes: 1 });
+    expect(data!.vence_el).not.toBeNull();
+  });
+
+  it("no crea una 2.ª sede llamando directo a la API", async () => {
+    const { error } = await duena.from("sedes").insert({ optica_id: opticaZ, nombre: "Segunda sede" });
+    expect(error?.message).toContain("Tu plan permite 1 sede");
+  });
+
+  it("no agrega un 4.º usuario llamando directo a la API", async () => {
+    for (const n of ["z2", "z3"]) {
+      const { error } = await duena.rpc("agregar_miembro", { p_optica: opticaZ, p_email: `${n}-${sufijo}@prueba.test`, p_rol: "operador" });
+      expect(error).toBeNull();
+    }
+    const { error } = await duena.rpc("agregar_miembro", { p_optica: opticaZ, p_email: `z4-${sufijo}@prueba.test`, p_rol: "operador" });
+    expect(error?.message).toContain("Tu plan permite hasta 3 usuarios");
+  });
+
+  it("no usa metas ni cambia su propio plan", async () => {
+    const periodo = `${new Date().toISOString().slice(0, 7)}-01`;
+    const metas = await duena.from("metas_ventas").insert({ optica_id: opticaZ, periodo, importe_objetivo: 1000 });
+    expect(metas.error?.message).toContain("Disponible en plan Profesional");
+    const plan = await duena.from("opticas").update({ plan: "profesional" }).eq("id", opticaZ);
+    expect(plan.error?.code).toBe("42501");
   });
 });

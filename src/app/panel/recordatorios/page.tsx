@@ -2,7 +2,7 @@ import { BellRing, CalendarClock, MessageCircle, Send } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
-import { BarraProgreso, Cargando, Encabezado, EstadoVacio, Indicador, Insignia, Pestanas, Tabla, Tarjeta, Td, Th } from "@/components/ui";
+import { BarraProgreso, Cargando, Encabezado, EstadoVacio, Indicador, Insignia, Pestanas, SoloProfesional, Tabla, Tarjeta, Td, Th } from "@/components/ui";
 import { configuracionRecordatorios, pacientesPorRecordar } from "@/lib/datos/recordatorios";
 import { fecha, mes } from "@/lib/formato";
 import { tienePermiso } from "@/lib/permisos";
@@ -33,13 +33,13 @@ async function Contenido({ searchParams }: Pick<Props, "searchParams">) {
   const { optica, sedes, actual } = await obtenerSedeActual();
   // Filtro de la página; sin él, la sede elegida en el selector general.
   const sedeElegida = sedes.find((s) => s.id === sp.sede)?.id ?? (sp.sede === "todas" ? null : (actual?.id ?? null));
-  const [filas, config] = await Promise.all([pacientesPorRecordar(sedeElegida), configuracionRecordatorios()]);
+  const sedesUso = sedes.filter((s) => s.activa && (sedeElegida === null || s.id === sedeElegida));
+  const [filas, config] = await Promise.all([pacientesPorRecordar(sedeElegida), configuracionRecordatorios(sedesUso)]);
 
   const conEstado = filas.map((f) => ({ f, e: estadoRecordatorio(f) }));
   const porEnviar = conEstado.filter((x) => x.e.puedeEnviar).length;
   const enviados = filas.filter((f) => f.envio_estado === "enviado" || f.envio_estado === "entregado").length;
   const hoy = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Lima" }).format(new Date());
-  const esProfesional = config.plan === "profesional";
 
   return (
     <div className="flex flex-col gap-6">
@@ -47,18 +47,34 @@ async function Contenido({ searchParams }: Pick<Props, "searchParams">) {
         <Indicador titulo="Por recordar" valor={porEnviar} detalle="Con consentimiento y celular" icono={BellRing} tono="ambar" />
         <Indicador titulo="Ya recordados" valor={enviados} detalle={`En ${mes(`${hoy.slice(0, 7)}-01`)}`} icono={Send} tono="verde" />
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-tarjeta">
-          <p className="text-sm font-medium text-slate-500">Mensajes por API este mes</p>
-          <p className="mt-2 text-2xl font-semibold tabular-nums text-slate-900">
-            {config.usados} <span className="text-base font-normal text-slate-500">de {config.tope_mensajes_mes}</span>
-          </p>
-          <div className="mt-2">
-            <BarraProgreso
-              valor={config.tope_mensajes_mes ? (config.usados / config.tope_mensajes_mes) * 100 : 100}
-              tono={config.usados >= config.tope_mensajes_mes ? "ambar" : "azul"}
-              etiqueta="Uso del tope mensual de mensajes"
-            />
-          </div>
-          <p className="mt-1 text-xs text-slate-500">Avisos de lentes listos y recordatorios automáticos. Los manuales no cuentan.</p>
+          <p className="text-sm font-medium text-slate-500">WhatsApp automáticos este mes</p>
+          {!config.incluye_whatsapp_api ? (
+            <div className="mt-2 flex flex-col gap-2">
+              <SoloProfesional compacto />
+              <p className="text-xs text-slate-500">En el plan Básico los avisos y recordatorios se envían a mano con el botón de WhatsApp.</p>
+            </div>
+          ) : (
+            <>
+              <ul className="mt-2 flex flex-col gap-3">
+                {config.uso.map((u) => (
+                  <li key={u.sede_id}>
+                    <p className="flex items-baseline justify-between gap-2 text-sm">
+                      <span className="truncate text-slate-700">{u.sede}</span>
+                      <span className="tabular-nums text-slate-900">
+                        {u.usados} <span className="text-slate-500">de {config.whatsapp_mensual}</span>
+                      </span>
+                    </p>
+                    <BarraProgreso
+                      valor={config.whatsapp_mensual ? (u.usados / config.whatsapp_mensual) * 100 : 100}
+                      tono={u.usados >= config.whatsapp_mensual ? "ambar" : "azul"}
+                      etiqueta={`Uso del tope mensual de WhatsApp de ${u.sede}`}
+                    />
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 text-xs text-slate-500">Tope por sede: avisos de lentes listos y recordatorios automáticos. Los manuales no cuentan.</p>
+            </>
+          )}
         </div>
       </div>
 
@@ -133,13 +149,13 @@ async function Contenido({ searchParams }: Pick<Props, "searchParams">) {
           </p>
         </section>
 
-        <Tarjeta titulo="Configuración" descripcion={`Plan ${esProfesional ? "Profesional" : "Básico"}`}>
+        <Tarjeta titulo="Configuración" descripcion={`Plan ${config.plan === "profesional" ? "Profesional" : "Básico"}`}>
           {tienePermiso(optica.rol, "configurarRecordatorios") ? (
             <FormularioConfiguracion
               meses={config.recordatorio_meses}
               automaticos={config.recordatorios_automaticos}
               puedeActivar={tienePermiso(optica.rol, "activarRecordatoriosAutomaticos")}
-              esProfesional={esProfesional}
+              esProfesional={config.incluye_recordatorios}
             />
           ) : (
             <p className="text-sm text-slate-600">

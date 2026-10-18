@@ -3,10 +3,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { Alerta } from "@/components/formulario";
-import { BarraProgreso, Cargando, Encabezado, EnlaceBoton, Indicador, Tarjeta } from "@/components/ui";
+import { BarraProgreso, Cargando, Encabezado, EnlaceBoton, Indicador, SoloProfesional, Tarjeta } from "@/components/ui";
 import { contarAlertas } from "@/lib/datos/inventario";
 import type { OrdenResumen } from "@/lib/datos/ordenes";
 import { resumenPanel } from "@/lib/datos/panel";
+import { obtenerSuscripcion } from "@/lib/datos/suscripcion";
 import { cumplimiento, ventasDelDia, ventasMensuales } from "@/lib/datos/ventas";
 import { fecha, mes, soles } from "@/lib/formato";
 import { numeroOrden } from "@/lib/ordenes/estados";
@@ -120,8 +121,9 @@ async function Panel() {
 
 /** Ventas y meta: solo propietario y administrador (la base vuelve a comprobarlo). */
 async function BloqueVentas() {
-  const [meses, hoy] = await Promise.all([ventasMensuales(6), ventasDelDia()]);
+  const [meses, hoy, suscripcion] = await Promise.all([ventasMensuales(6), ventasDelDia(), obtenerSuscripcion()]);
   const actual = meses[0];
+  const conMetas = suscripcion.incluye.metas;
   const c = cumplimiento(actual.ventas, actual.meta);
   return (
     <div className="mb-6 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
@@ -136,9 +138,13 @@ async function BloqueVentas() {
                 {c ? `${Math.round(c.porcentaje)} %` : "Sin meta"}
               </p>
             </div>
-            <EnlaceBoton href="/panel/ventas" tamano="sm" icono={Target}>
-              {c ? "Ver detalle" : "Definir meta"}
-            </EnlaceBoton>
+            {conMetas ? (
+              <EnlaceBoton href="/panel/ventas" tamano="sm" icono={Target}>
+                {c ? "Ver detalle" : "Definir meta"}
+              </EnlaceBoton>
+            ) : (
+              <SoloProfesional compacto />
+            )}
           </div>
           {c && (
             <div className="mt-3">

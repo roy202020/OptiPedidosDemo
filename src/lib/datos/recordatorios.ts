@@ -15,19 +15,35 @@ export type ConfigRecordatorios = {
   nombre: string;
   recordatorio_meses: number;
   plan: "basico" | "profesional";
-  tope_mensajes_mes: number;
   recordatorios_automaticos: boolean;
-  usados: number;
+  /** El plan incluye envíos automáticos por la API de WhatsApp (avisos y recordatorios). */
+  incluye_whatsapp_api: boolean;
+  incluye_recordatorios: boolean;
+  /** Tope de mensajes automáticos por sede al mes (plan Profesional: 300). */
+  whatsapp_mensual: number;
+  /** Mensajes automáticos de este mes en cada sede visible. */
+  uso: { sede_id: string; sede: string; usados: number }[];
 };
 
-export async function configuracionRecordatorios(): Promise<ConfigRecordatorios> {
+export async function configuracionRecordatorios(sedes: { id: string; nombre: string }[]): Promise<ConfigRecordatorios> {
   const optica = await exigirOptica();
   const supabase = await crearClienteServidor();
-  const [o, usados] = await Promise.all([
-    supabase.from("opticas").select("nombre, recordatorio_meses, plan, tope_mensajes_mes, recordatorios_automaticos").eq("id", optica.id).single(),
-    supabase.rpc("mensajes_del_mes", { p_optica: optica.id }),
+  const [o, ...usados] = await Promise.all([
+    supabase
+      .from("opticas")
+      .select("nombre, recordatorio_meses, plan, whatsapp_mensual, recordatorios_automaticos, planes(incluye_whatsapp_api, incluye_recordatorios)")
+      .eq("id", optica.id)
+      .single(),
+    ...sedes.map((s) => supabase.rpc("mensajes_del_mes_sede", { p_sede: s.id })),
   ]);
-  const error = o.error ?? usados.error;
+  const error = o.error ?? usados.find((u) => u.error)?.error;
   if (error) throw new Error(`No se pudo leer la configuración: ${error.message}`);
-  return { ...(o.data as Omit<ConfigRecordatorios, "usados">), usados: Number(usados.data ?? 0) };
+  const { planes, ...datos } = o.data as unknown as Omit<ConfigRecordatorios, "uso" | "incluye_whatsapp_api" | "incluye_recordatorios"> & {
+    planes: { incluye_whatsapp_api: boolean; incluye_recordatorios: boolean };
+  };
+  return {
+    ...datos,
+    ...planes,
+    uso: sedes.map((s, i) => ({ sede_id: s.id, sede: s.nombre, usados: Number(usados[i].data ?? 0) })),
+  };
 }
