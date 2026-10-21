@@ -23,6 +23,12 @@ export const PERMISOS = {
   configurarRecordatorios: ["propietario", "administrador"],
   /** Activar el envío automático de recordatorios (además exige el plan Profesional). */
   activarRecordatoriosAutomaticos: ["propietario"],
+  /** Pagos a laboratorios, caja de la sede, anulaciones, deuda y ganancia (en sus sedes). */
+  gestionarCuentasLaboratorio: ["propietario", "administrador"],
+  /** Regenerar el código de la consulta pública de una orden (si se filtró). */
+  regenerarCodigoConsulta: ["propietario", "administrador"],
+  /** Anular cobros de clientes, autorizar entregas con saldo y cerrar la caja (en sus sedes). */
+  gestionarCobros: ["propietario", "administrador"],
   /** Alta, rol y desactivación de miembros. */
   gestionarMiembros: ["propietario"],
 } as const satisfies Record<string, readonly Rol[]>;

@@ -78,6 +78,7 @@ describe("esquemaSede", () => {
       nombre: "Norte",
       direccion: null,
       telefono: null,
+      horario: null,
       whatsapp_phone_number_id: "1234567890",
     });
   });

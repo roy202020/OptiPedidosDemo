@@ -12,6 +12,8 @@ export type Laboratorio = {
   telefono: string | null;
   email: string | null;
   activo: boolean;
+  /** Días de crédito (0 = contado). */
+  dias_credito: number;
   creado_en: string;
 };
 

@@ -26,10 +26,27 @@
   --color-marca-900: #10203f;
   --color-marca-950: #0a1428;
 
-  --color-fondo: #f5f6f8;
+  --color-fondo: #f4f6f9;
 
   --shadow-tarjeta: 0 1px 2px rgb(16 32 63 / 0.04), 0 1px 3px rgb(16 32 63 / 0.06);
+  --shadow-elevada: 0 6px 16px -6px rgb(16 32 63 / 0.14), 0 2px 4px -2px rgb(16 32 63 / 0.06);
   --shadow-flotante: 0 10px 30px -10px rgb(16 32 63 / 0.25), 0 4px 10px -4px rgb(16 32 63 / 0.1);
+
+  /* Animaciones discretas; con prefers-reduced-motion se anulan (ver @layer base). */
+  --animate-aparecer: aparecer 180ms ease-out both;
+  --animate-deslizar: deslizar 200ms ease-out both;
+
+  @keyframes aparecer {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+  }
+  @keyframes deslizar {
+    from {
+      transform: translateX(-100%);
+    }
+  }
 }
 
 @layer base {
@@ -52,5 +69,18 @@
   /* Fondo del diálogo modal nativo */
   dialog::backdrop {
     background: rgb(10 20 40 / 0.45);
+  }
+
+  dialog[open] {
+    animation: var(--animate-aparecer);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      animation-duration: 1ms !important;
+      transition-duration: 1ms !important;
+    }
   }
 }

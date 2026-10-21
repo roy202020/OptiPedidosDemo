@@ -25,24 +25,27 @@ export async function resumenPanel() {
     return sede ? q.eq("sede_id", sede) : q;
   };
 
-  const [activas, atrasadas, listas, pacientes, recientes, seguimiento, paraEntregar] = await Promise.all([
+  const EN_LABORATORIO = ["enviada", "recibida_lab", "en_proceso", "lista"] as const;
+  const [activas, atrasadas, listas, enLaboratorio, pacientes, recientes, seguimiento, paraEntregar] = await Promise.all([
     ordenes().in("estado", ACTIVOS),
     ordenes().in("estado", PENDIENTES_DE_LLEGAR).lt("fecha_entrega_prometida", hoy),
     ordenes().eq("estado", "recibida_optica"),
+    ordenes().in("estado", EN_LABORATORIO),
     supabase.from("pacientes").select("id", contar).eq("optica_id", optica.id).is("archivado_en", null),
-    lista().order("creado_en", { ascending: false }).limit(6),
+    lista().order("creado_en", { ascending: false }).limit(8),
     // Trabajos en el laboratorio, los de fecha prometida más cercana (o vencida) primero.
-    lista().in("estado", ["enviada", "recibida_lab", "en_proceso", "lista"]).order("fecha_entrega_prometida").limit(6),
+    lista().in("estado", EN_LABORATORIO).order("fecha_entrega_prometida").limit(6),
     lista().eq("estado", "recibida_optica").order("actualizado_en").limit(6),
   ]);
 
-  const error = [activas, atrasadas, listas, pacientes, recientes, seguimiento, paraEntregar].find((r) => r.error)?.error;
+  const error = [activas, atrasadas, listas, enLaboratorio, pacientes, recientes, seguimiento, paraEntregar].find((r) => r.error)?.error;
   if (error) throw new Error(`No se pudo leer el resumen: ${error.message}`);
 
   return {
     ordenesActivas: activas.count ?? 0,
     atrasadas: atrasadas.count ?? 0,
     listas: listas.count ?? 0,
+    enLaboratorio: enLaboratorio.count ?? 0,
     pacientesActivos: pacientes.count ?? 0,
     recientes: recientes.data as unknown as OrdenResumen[],
     seguimiento: seguimiento.data as unknown as OrdenResumen[],

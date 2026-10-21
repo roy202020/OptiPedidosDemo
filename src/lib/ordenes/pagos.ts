@@ -1,4 +1,17 @@
-/** Medios de pago (mismos valores que el CHECK de orden_pagos.medio). */
+/** Medios que se ofrecen al registrar un cobro (0015: Yape y Plin por separado). */
+export const MEDIOS_COBRO = {
+  efectivo: "Efectivo",
+  yape: "Yape",
+  plin: "Plin",
+  tarjeta: "Tarjeta",
+  transferencia: "Transferencia",
+} as const;
+export type MedioCobro = keyof typeof MEDIOS_COBRO;
+
+/** Nombre de cualquier medio guardado, incluido "Yape / Plin" de los cobros anteriores a la 0015. */
+export const NOMBRE_MEDIO: Record<string, string> = { ...MEDIOS_COBRO, yape_plin: "Yape / Plin" };
+
+/** Totales de la caja del día (caja_del_dia): Yape y Plin se suman en "Yape / Plin". */
 export const MEDIOS_PAGO = {
   efectivo: "Efectivo",
   tarjeta: "Tarjeta",
@@ -11,7 +24,9 @@ export type MedioPago = keyof typeof MEDIOS_PAGO;
 export type Pago = {
   id: string;
   importe: number | string;
-  medio: MedioPago;
+  medio: MedioCobro | "yape_plin";
+  numero_operacion: string | null;
+  caja_id: string | null;
   fecha: string;
   creado_por: string;
   creado_en: string;

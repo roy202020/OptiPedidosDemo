@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { DISENOS, ORIGENES_MONTURA, PRIORIDADES, TIPOS_TRABAJO, TRATAMIENTOS } from "@/lib/ordenes/estados";
-import { MEDIOS_PAGO } from "@/lib/ordenes/pagos";
+import { MEDIOS_COBRO } from "@/lib/ordenes/pagos";
 import { hoyISO, hoyLimaISO, textoOpcional } from "./comun";
 import { leerNumero } from "./receta";
 
@@ -130,6 +130,11 @@ export const esquemaLaboratorio = z.object({
     (v) => (typeof v === "string" && v.trim() !== "" ? v.trim().toLowerCase() : null),
     z.email("Correo inválido").nullable(),
   ),
+  /** Solo propietario y administrador lo envían (la base lo vuelve a comprobar). */
+  dias_credito: z.preprocess(
+    (v) => (typeof v === "string" && v.trim() !== "" ? Number(v) : undefined),
+    z.number("Escribe los días como número").int("Los días deben ser enteros").min(0, "Mínimo 0 (contado)").max(365, "Máximo 365 días").optional(),
+  ),
 });
 
 /** Meta mensual: periodo AAAA-MM (input type=month) e importe en soles. */
@@ -152,7 +157,12 @@ export const esquemaPago = z.object({
     leerImporte,
     z.number("Escribe el importe en soles (máximo 2 decimales)").gt(0, "El importe debe ser mayor que cero").max(99_999_999, "El importe es demasiado alto"),
   ),
-  medio: z.enum(claves(MEDIOS_PAGO), "Elige el medio de pago"),
+  // El formulario ofrece Yape y Plin por separado; "yape_plin" se sigue aceptando (cobros anteriores a la 0015).
+  medio: z.enum([...claves(MEDIOS_COBRO), "yape_plin"], "Elige el medio de pago"),
+  numero_operacion: z.preprocess(
+    (v) => (typeof v === "string" && v.trim() !== "" ? v.trim() : undefined),
+    z.string().max(60, "Máximo 60 caracteres").optional(),
+  ),
   fecha: z.iso.date("Indica la fecha del pago").refine((f) => f <= hoyLimaISO(), "La fecha del pago no puede estar en el futuro"),
 });
 

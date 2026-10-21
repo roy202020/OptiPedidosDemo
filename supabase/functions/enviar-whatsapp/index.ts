@@ -16,7 +16,15 @@
 //                             sede donde se vendió y se recoge el lente.
 //   WHATSAPP_TEMPLATE         Nombre de la plantilla aprobada (por defecto: lentes_listos).
 //   WHATSAPP_TEMPLATE_LANG    Idioma de la plantilla (por defecto: es).
+//   WHATSAPP_TEMPLATE_SALDO   Opcional, plantilla aprobada para cuando el pedido tiene saldo pendiente
+//                             (p. ej. "lentes_listos_saldo"). Parámetros: {{1}} nombre, {{2}} saldo ("S/ 120.00")
+//                             y, si WHATSAPP_CONSULTA_URL existe, {{3}} enlace de consulta. Sin este secreto,
+//                             con saldo se envía la plantilla normal (Meta no admite texto libre fuera de plantilla).
 //   WHATSAPP_API_URL          Opcional, base de la Graph API (por defecto: https://graph.facebook.com/v21.0).
+//   WHATSAPP_CONSULTA_URL     Opcional, dirección pública de la app (p. ej. https://app.optipedidos.pe).
+//                             Si existe, el enlace de consulta del pedido (/estado/{codigo}) va como
+//                             segundo parámetro de la plantilla. Activarlo solo cuando la plantilla
+//                             aprobada en Meta tenga ese segundo parámetro.
 // SUPABASE_URL, SUPABASE_ANON_KEY y SUPABASE_SERVICE_ROLE_KEY los provee Supabase.
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
@@ -27,7 +35,9 @@ const WA_TOKEN = Deno.env.get("WHATSAPP_TOKEN") ?? "";
 const WA_PHONE_ID = Deno.env.get("WHATSAPP_PHONE_NUMBER_ID") ?? "";
 const WA_TEMPLATE = Deno.env.get("WHATSAPP_TEMPLATE") ?? "lentes_listos";
 const WA_LANG = Deno.env.get("WHATSAPP_TEMPLATE_LANG") ?? "es";
+const WA_TEMPLATE_SALDO = Deno.env.get("WHATSAPP_TEMPLATE_SALDO") ?? "";
 const WA_API = (Deno.env.get("WHATSAPP_API_URL") ?? "https://graph.facebook.com/v21.0").replace(/\/$/, "");
+const CONSULTA_URL = (Deno.env.get("WHATSAPP_CONSULTA_URL") ?? "").replace(/\/$/, "");
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -55,7 +65,19 @@ const rpc = (fn: string, args: Record<string, unknown>) =>
   rest(`rpc/${fn}`, { method: "POST", body: JSON.stringify(args), ...servicio });
 
 /** Envía la plantilla. Devuelve el id del mensaje o lanza un error con el detalle del proveedor. */
-async function enviarPlantilla(numeroEmisor: string, telefono: string, nombre: string): Promise<string> {
+async function enviarPlantilla(
+  numeroEmisor: string,
+  telefono: string,
+  nombre: string,
+  enlace: string | null,
+  saldo: number,
+): Promise<string> {
+  const conSaldo = saldo > 0 && WA_TEMPLATE_SALDO !== "";
+  const parametros = [
+    { type: "text", text: nombre },
+    ...(conSaldo ? [{ type: "text", text: `S/ ${saldo.toFixed(2)}` }] : []),
+    ...(enlace ? [{ type: "text", text: enlace }] : []),
+  ];
   const controlador = new AbortController();
   const limite = setTimeout(() => controlador.abort(), 10_000);
   try {
@@ -68,9 +90,9 @@ async function enviarPlantilla(numeroEmisor: string, telefono: string, nombre: s
         to: telefono,
         type: "template",
         template: {
-          name: WA_TEMPLATE,
+          name: conSaldo ? WA_TEMPLATE_SALDO : WA_TEMPLATE,
           language: { code: WA_LANG },
-          components: [{ type: "body", parameters: [{ type: "text", text: nombre }] }],
+          components: [{ type: "body", parameters: parametros }],
         },
       }),
     });
@@ -84,6 +106,19 @@ async function enviarPlantilla(numeroEmisor: string, telefono: string, nombre: s
   } finally {
     clearTimeout(limite);
   }
+}
+
+/** Enlace público de consulta (si WHATSAPP_CONSULTA_URL está configurado) y saldo pendiente del pedido del aviso. */
+async function datosDelPedido(notificacionId: string): Promise<{ enlace: string | null; saldo: number }> {
+  const filas = await rest(
+    `notificaciones?id=eq.${notificacionId}&select=orden:ordenes(codigo_consulta,precio,descuento,pagos:orden_pagos(importe,anulado_en))&limit=1`,
+    { method: "GET", ...servicio },
+  );
+  const o = filas?.[0]?.orden;
+  if (!o) return { enlace: null, saldo: 0 };
+  const pagado = (o.pagos ?? []).filter((p: { anulado_en: string | null }) => !p.anulado_en).reduce((t: number, p: { importe: number }) => t + Number(p.importe), 0);
+  const saldo = Math.max(0, Math.round((Number(o.precio) - Number(o.descuento) - pagado) * 100) / 100);
+  return { enlace: CONSULTA_URL && o.codigo_consulta ? `${CONSULTA_URL}/estado/${o.codigo_consulta}` : null, saldo };
 }
 
 Deno.serve(async (req) => {
@@ -118,7 +153,8 @@ Deno.serve(async (req) => {
       return responder(200, { estado: "fallida", enviado: false });
     }
     try {
-      const mensajeId = await enviarPlantilla(numeroEmisor, aviso.telefono, aviso.paciente ?? "");
+      const pedido = await datosDelPedido(id);
+      const mensajeId = await enviarPlantilla(numeroEmisor, aviso.telefono, aviso.paciente ?? "", pedido.enlace, pedido.saldo);
       await rpc("registrar_envio", { p_id: id, p_ok: true, p_mensaje_id: mensajeId });
       return responder(200, { estado: "enviada", enviado: true });
     } catch (e) {

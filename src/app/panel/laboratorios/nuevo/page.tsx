@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
-import { Encabezado, Tarjeta } from "@/components/ui";
+import { Suspense } from "react";
+import { Cargando, Encabezado, Tarjeta } from "@/components/ui";
+import { tienePermiso } from "@/lib/permisos";
+import { exigirOptica } from "@/lib/sesion";
 import { crearLaboratorio } from "../acciones";
 import { FormularioLaboratorio } from "../formulario-laboratorio";
 
@@ -10,8 +13,22 @@ export default function PaginaNuevoLaboratorio() {
     <>
       <Encabezado titulo="Nuevo laboratorio" volver={{ href: "/panel/laboratorios", texto: "Laboratorios" }} />
       <Tarjeta className="max-w-4xl">
-        <FormularioLaboratorio accion={crearLaboratorio} textoBoton="Registrar laboratorio" cancelar="/panel/laboratorios" />
+        <Suspense fallback={<Cargando alto="h-64" />}>
+          <Formulario />
+        </Suspense>
       </Tarjeta>
     </>
+  );
+}
+
+async function Formulario() {
+  const optica = await exigirOptica();
+  return (
+    <FormularioLaboratorio
+      accion={crearLaboratorio}
+      textoBoton="Registrar laboratorio"
+      cancelar="/panel/laboratorios"
+      editaCredito={tienePermiso(optica.rol, "gestionarCuentasLaboratorio")}
+    />
   );
 }

@@ -8,7 +8,7 @@ import type { EstadoFormulario } from "@/lib/estado-formulario";
 import { mensajeDb } from "@/lib/errores-db";
 import { procesarAviso } from "@/lib/notificaciones";
 import { ESTADOS_INTERNOS } from "@/lib/ordenes/estados";
-import { exigirOptica } from "@/lib/sesion";
+import { exigirOptica, exigirPermiso } from "@/lib/sesion";
 import { crearClienteServidor } from "@/lib/supabase/servidor";
 import { valoresDe } from "@/lib/validacion/comun";
 import {
@@ -157,12 +157,28 @@ export async function reintentarAviso(
   return { listo: true };
 }
 
+/** Nuevo código de consulta pública: el enlace y el QR anteriores dejan de funcionar. */
+export async function regenerarCodigoConsulta(ordenId: string, _previo: EstadoFormulario, _datos: FormData): Promise<EstadoFormulario> {
+  await exigirPermiso("regenerarCodigoConsulta");
+  if (!idValido(ordenId)) return { error: "Orden inválida." };
+  const supabase = await crearClienteServidor();
+  const { error } = await supabase.rpc("regenerar_codigo_consulta", { p_orden: ordenId });
+  if (error) return { error: mensajeDb(error) };
+  revalidatePath(`/panel/ordenes/${ordenId}`);
+  return { listo: true };
+}
+
 /** Registra un pago (adelanto o saldo). La base comprueba que no supere el saldo pendiente. */
 export async function registrarPago(id: string, _previo: EstadoFormulario, datos: FormData): Promise<EstadoFormulario> {
   const optica = await exigirOptica();
   const valores = valoresDe(datos);
   if (!idValido(id)) return { error: "Orden inválida.", valores };
-  const r = esquemaPago.safeParse({ importe: datos.get("importe") ?? "", medio: datos.get("medio") ?? "", fecha: datos.get("fecha") ?? "" });
+  const r = esquemaPago.safeParse({
+    importe: datos.get("importe") ?? "",
+    medio: datos.get("medio") ?? "",
+    numero_operacion: datos.get("numero_operacion") ?? "",
+    fecha: datos.get("fecha") ?? "",
+  });
   if (!r.success) return { campos: z.flattenError(r.error).fieldErrors, valores };
 
   const supabase = await crearClienteServidor();
@@ -170,12 +186,13 @@ export async function registrarPago(id: string, _previo: EstadoFormulario, datos
   if (error) return { error: mensajeDb(error), valores };
 
   revalidatePath(`/panel/ordenes/${id}`);
-  return { listo: true };
+  revalidatePath("/panel/saldos");
+  return { listo: true, aviso: "Cobro registrado. El recibo está en la lista de cobros." };
 }
 
-/** Anula un pago con motivo (los pagos no se editan ni se borran). */
+/** Anula un cobro con motivo (no se editan ni se borran). Solo propietario o administrador (la base lo exige). */
 export async function anularPago(pagoId: string, ordenId: string, _previo: EstadoFormulario, datos: FormData): Promise<EstadoFormulario> {
-  const optica = await exigirOptica();
+  const optica = await exigirPermiso("gestionarCobros");
   if (!idValido(pagoId) || !idValido(ordenId)) return { error: "Pago inválido." };
   const m = esquemaMotivo.safeParse({ motivo: datos.get("motivo") ?? "" });
   if (!m.success) return { campos: z.flattenError(m.error).fieldErrors };
@@ -192,5 +209,21 @@ export async function anularPago(pagoId: string, ordenId: string, _previo: Estad
   if (!data.length) return { error: "El pago ya no está vigente. Recarga la página." };
 
   revalidatePath(`/panel/ordenes/${ordenId}`);
+  return { listo: true };
+}
+
+/** Entrega una orden con saldo pendiente: solo propietario o administrador, con motivo (queda registrado). */
+export async function entregarConSaldo(ordenId: string, _previo: EstadoFormulario, datos: FormData): Promise<EstadoFormulario> {
+  await exigirPermiso("gestionarCobros");
+  if (!idValido(ordenId)) return { error: "Orden inválida." };
+  const m = esquemaMotivo.safeParse({ motivo: datos.get("motivo") ?? "" });
+  if (!m.success) return { campos: z.flattenError(m.error).fieldErrors };
+
+  const supabase = await crearClienteServidor();
+  const { error } = await supabase.rpc("entregar_con_saldo", { p_orden: ordenId, p_motivo: m.data.motivo });
+  if (error) return { error: mensajeDb(error) };
+
+  revalidatePath(`/panel/ordenes/${ordenId}`);
+  revalidatePath("/panel/saldos");
   return { listo: true };
 }

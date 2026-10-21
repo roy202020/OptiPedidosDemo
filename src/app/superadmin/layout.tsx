@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: { template: "%s · Plataforma", defau
 export default function LayoutSuperadmin({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-dvh">
-      <header className="bg-marca-900 text-white">
+      <header className="sticky top-0 z-20 bg-marca-900 text-white shadow-sm">
         <div className="mx-auto flex min-h-14 w-full max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-2 sm:px-6 lg:px-8">
           <Link href="/superadmin" className="flex items-center gap-3">
             <Marca invertida />

@@ -32,6 +32,7 @@ insert into recetas (id, optica_id, paciente_id, od_esfera, creado_por) values
   ('3a000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-00000000000a', '2a000000-0000-0000-0000-000000000001', -1.00, 'aaaaaaaa-0000-0000-0000-000000000001'),
   ('3b000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-00000000000b', '2b000000-0000-0000-0000-000000000001', -1.00, 'bbbbbbbb-0000-0000-0000-000000000001');
 
+insert into cajas (optica_id, sede_id, abierta_por, monto_inicial) select s.optica_id, s.id, '00000000-0000-0000-0000-000000000000', 0 from sedes s where not exists (select 1 from cajas c where c.sede_id = s.id and c.cerrada_en is null);  -- caja abierta: el efectivo entra a la caja (0015)
 set local role authenticated;
 create temp table t (clave text primary key, id uuid) on commit drop;
 grant all on t to authenticated;

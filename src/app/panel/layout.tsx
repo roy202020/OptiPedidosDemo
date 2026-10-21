@@ -1,6 +1,8 @@
+import { Plus, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { Suspense } from "react";
 import { Alerta, FijarSoloLectura, ProveedorSoloLectura } from "@/components/formulario";
+import { EnlaceBoton } from "@/components/ui";
 import { obtenerSuscripcion } from "@/lib/datos/suscripcion";
 import { NOMBRE_ROL, tienePermiso } from "@/lib/permisos";
 import { exigirOptica, obtenerSedeActual, obtenerUsuario, TODAS_LAS_SEDES } from "@/lib/sesion";
@@ -22,10 +24,10 @@ export default function LayoutPanel({ children }: { children: React.ReactNode })
         <Suspense fallback={<MenuLateralEsqueleto />}>
           <Menu />
         </Suspense>
-        <div className="border-b border-slate-200 bg-white">
-          <div className="mx-auto flex min-h-12 w-full max-w-7xl items-center px-4 py-2 sm:px-6 lg:px-8">
+        <div className="border-b border-slate-200 bg-white/90 backdrop-blur lg:sticky lg:top-0 lg:z-20">
+          <div className="mx-auto flex min-h-16 w-full max-w-7xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2.5 sm:px-6 lg:px-8">
             <Suspense fallback={<span className="h-9" />}>
-              <BarraSede />
+              <BarraSuperior />
             </Suspense>
           </div>
         </div>
@@ -41,19 +43,43 @@ export default function LayoutPanel({ children }: { children: React.ReactNode })
 }
 
 async function Menu() {
-  const [usuario, optica] = await Promise.all([obtenerUsuario(), exigirOptica()]);
-  return <MenuLateral rol={optica.rol} nombreRol={NOMBRE_ROL[optica.rol]} optica={optica.nombre} email={usuario.email} />;
+  const [usuario, optica, suscripcion] = await Promise.all([obtenerUsuario(), exigirOptica(), obtenerSuscripcion()]);
+  return (
+    <MenuLateral
+      rol={optica.rol}
+      nombreRol={NOMBRE_ROL[optica.rol]}
+      optica={optica.nombre}
+      email={usuario.email}
+      plan={suscripcion.nombrePlan}
+    />
+  );
 }
 
-/** Selector de sede: solo las sedes del usuario (RLS). */
-async function BarraSede() {
-  const { sedes, actual } = await obtenerSedeActual();
+/** Nombre de la óptica, selector de sede (solo las sedes del usuario, por RLS) y acciones rápidas. */
+async function BarraSuperior() {
+  const [optica, { sedes, actual }] = await Promise.all([exigirOptica(), obtenerSedeActual()]);
   return (
-    <SelectorSede
-      sedes={sedes.map(({ id, nombre, activa }) => ({ id, nombre, activa }))}
-      actual={actual?.id ?? TODAS_LAS_SEDES}
-      todas={TODAS_LAS_SEDES}
-    />
+    <>
+      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-2">
+        <p className="min-w-0 truncate text-base font-semibold text-slate-900" title={optica.nombre}>
+          {optica.nombre}
+        </p>
+        <span aria-hidden className="hidden h-5 w-px bg-slate-200 sm:block" />
+        <SelectorSede
+          sedes={sedes.map(({ id, nombre, activa }) => ({ id, nombre, activa }))}
+          actual={actual?.id ?? TODAS_LAS_SEDES}
+          todas={TODAS_LAS_SEDES}
+        />
+      </div>
+      <div className="flex items-center gap-2">
+        <EnlaceBoton href="/panel/pacientes/nuevo" icono={UserPlus} className="max-sm:px-2.5">
+          <span className="max-sm:sr-only">Nuevo paciente</span>
+        </EnlaceBoton>
+        <EnlaceBoton href="/panel/ordenes/nueva" variante="primario" icono={Plus}>
+          Nueva orden
+        </EnlaceBoton>
+      </div>
+    </>
   );
 }
 

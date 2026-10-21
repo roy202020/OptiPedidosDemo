@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { ChevronLeft, ChevronRight, Gem } from "lucide-react";
+import { ChevronLeft, ChevronRight, Gem, Search } from "lucide-react";
 import Link from "next/link";
 
 /**
@@ -17,9 +17,9 @@ export const claseControl =
 
 export const VARIANTES_BOTON = {
   primario: "bg-marca-700 text-white shadow-sm hover:bg-marca-800 active:bg-marca-900",
-  secundario: "border border-slate-300 bg-white text-slate-800 shadow-sm hover:bg-slate-50",
-  peligro: "bg-red-600 text-white shadow-sm hover:bg-red-700",
-  fantasma: "text-slate-700 hover:bg-slate-100",
+  secundario: "border border-slate-300 bg-white text-slate-800 shadow-sm hover:border-slate-400 hover:bg-slate-50 active:bg-slate-100",
+  peligro: "bg-red-600 text-white shadow-sm hover:bg-red-700 active:bg-red-800",
+  fantasma: "text-slate-700 hover:bg-slate-100 active:bg-slate-200",
 } as const;
 
 const TAMANOS_BOTON = {
@@ -31,7 +31,7 @@ export type VarianteBoton = keyof typeof VARIANTES_BOTON;
 
 export const claseBoton = (variante: VarianteBoton = "secundario", tamano: keyof typeof TAMANOS_BOTON = "md") =>
   cx(
-    "inline-flex shrink-0 items-center justify-center rounded-lg font-medium whitespace-nowrap transition-colors disabled:pointer-events-none disabled:opacity-60",
+    "inline-flex shrink-0 cursor-pointer items-center justify-center rounded-lg font-medium whitespace-nowrap transition-colors select-none disabled:pointer-events-none disabled:opacity-60 aria-disabled:pointer-events-none",
     VARIANTES_BOTON[variante],
     TAMANOS_BOTON[tamano],
   );
@@ -90,20 +90,30 @@ export function Encabezado({
       {volver && (
         <Link
           href={volver.href}
-          className="mb-3 inline-flex items-center gap-1 text-sm font-medium text-slate-500 hover:text-marca-700"
+          className="group mb-3 inline-flex items-center gap-1 rounded-md text-sm font-medium text-slate-500 transition-colors hover:text-marca-700"
         >
-          <ChevronLeft aria-hidden className="size-4" />
+          <ChevronLeft aria-hidden className="size-4 transition-transform group-hover:-translate-x-0.5" />
           {volver.texto}
         </Link>
       )}
-      <div className="flex flex-wrap items-start justify-between gap-4">
+      <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
         <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{titulo}</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">{titulo}</h1>
           {descripcion && <div className="mt-1 text-sm text-slate-500">{descripcion}</div>}
         </div>
         {children && <div className="flex flex-wrap items-center gap-2">{children}</div>}
       </div>
     </header>
+  );
+}
+
+/** Título de un bloque dentro de una página (sin tarjeta). */
+export function Subtitulo({ children, acciones }: { children: React.ReactNode; acciones?: React.ReactNode }) {
+  return (
+    <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+      <h2 className="text-sm font-semibold tracking-wide text-slate-500 uppercase">{children}</h2>
+      {acciones}
+    </div>
   );
 }
 
@@ -123,11 +133,11 @@ export function Tarjeta({
   sinRelleno?: boolean;
 }) {
   return (
-    <section className={cx("rounded-xl border border-slate-200 bg-white shadow-tarjeta", className)}>
+    <section className={cx("rounded-xl border border-slate-200/80 bg-white shadow-tarjeta", className)}>
       {(titulo || acciones) && (
         <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
-          <div>
-            {titulo && <h2 className="text-base font-semibold text-slate-900">{titulo}</h2>}
+          <div className="min-w-0">
+            {titulo && <h2 className="text-[15px] font-semibold text-slate-900">{titulo}</h2>}
             {descripcion && <p className="mt-0.5 text-sm text-slate-500">{descripcion}</p>}
           </div>
           {acciones && <div className="flex flex-wrap gap-2">{acciones}</div>}
@@ -175,23 +185,38 @@ export function Insignia({ tono = "neutro", icono: Icono, children }: { tono?: T
   );
 }
 
+/**
+ * Estado vacío. `compacto` es para usarlo dentro de una tarjeta (sin borde propio).
+ */
 export function EstadoVacio({
   icono: Icono,
   titulo,
   descripcion,
   children,
+  compacto,
 }: {
   icono: LucideIcon;
   titulo: string;
-  descripcion?: string;
+  descripcion?: React.ReactNode;
   children?: React.ReactNode;
+  compacto?: boolean;
 }) {
   return (
-    <div className="flex flex-col items-center rounded-xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
-      <span className="mb-3 flex size-11 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+    <div
+      className={cx(
+        "flex flex-col items-center text-center",
+        compacto ? "px-5 py-8" : "rounded-xl border border-dashed border-slate-300 bg-white px-6 py-12",
+      )}
+    >
+      <span
+        className={cx(
+          "mb-3 flex items-center justify-center rounded-full bg-marca-50 text-marca-600 ring-8 ring-marca-50/50",
+          compacto ? "size-10" : "size-12",
+        )}
+      >
         <Icono aria-hidden className="size-5" />
       </span>
-      <p className="font-medium text-slate-900">{titulo}</p>
+      <p className="text-sm font-semibold text-slate-900">{titulo}</p>
       {descripcion && <p className="mt-1 max-w-sm text-sm text-slate-500">{descripcion}</p>}
       {children && <div className="mt-4 flex flex-wrap justify-center gap-2">{children}</div>}
     </div>
@@ -247,23 +272,44 @@ export function Indicador({
 }) {
   const contenido = (
     <>
-      <div className="flex items-start justify-between gap-3">
-        <p className="text-sm font-medium text-slate-500">{titulo}</p>
-        <span className={cx("flex size-8 items-center justify-center rounded-lg ring-1 ring-inset", TONOS[tono])}>
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-[13px] leading-snug font-medium text-slate-500">{titulo}</p>
+        <span className={cx("flex size-8 shrink-0 items-center justify-center rounded-lg ring-1 ring-inset", TONOS[tono])}>
           <Icono aria-hidden className="size-4" />
         </span>
       </div>
-      <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-900 tabular-nums">{valor}</p>
-      {detalle && <p className="mt-1 text-xs text-slate-500">{detalle}</p>}
+      <p className="mt-1 truncate text-2xl font-semibold tracking-tight text-slate-900 tabular-nums">{valor}</p>
+      {detalle && <p className="mt-auto truncate pt-1 text-xs text-slate-500">{detalle}</p>}
     </>
   );
-  const clase = "block rounded-xl border border-slate-200 bg-white p-4 shadow-tarjeta";
+  // Alto uniforme: todas las tarjetas de una fila miden lo mismo aunque no tengan detalle.
+  const clase = "flex h-full min-h-28 flex-col rounded-xl border border-slate-200/80 bg-white p-4 shadow-tarjeta";
   return href ? (
-    <Link href={href} className={cx(clase, "transition-colors hover:border-marca-300")}>
+    <Link href={href} className={cx(clase, "transition hover:-translate-y-px hover:border-marca-300 hover:shadow-elevada")}>
       {contenido}
     </Link>
   ) : (
     <div className={clase}>{contenido}</div>
+  );
+}
+
+/** Iniciales de un nombre o correo, para el avatar. */
+export const iniciales = (texto: string) =>
+  texto
+    .split(/[\s@._-]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0]!.toUpperCase())
+    .join("") || "?";
+
+export function Avatar({ texto, chico, className }: { texto: string; chico?: boolean; className?: string }) {
+  return (
+    <span
+      aria-hidden
+      className={cx("flex shrink-0 items-center justify-center rounded-full font-semibold", chico ? "size-8 text-[11px]" : "size-9 text-xs", className ?? "bg-marca-100 text-marca-800")}
+    >
+      {iniciales(texto)}
+    </span>
   );
 }
 
@@ -285,25 +331,89 @@ export function SoloProfesional({ children, compacto }: { children?: React.React
 
 export function Tabla({ children, pie }: { children: React.ReactNode; pie?: React.ReactNode }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-tarjeta">
+    <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-tarjeta">
       <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm">{children}</table>
+        <table className="w-full text-left text-sm [&_tbody_tr]:transition-colors">{children}</table>
       </div>
-      {pie && <div className="border-t border-slate-200 px-4 py-3">{pie}</div>}
+      {pie && <div className="border-t border-slate-200 bg-slate-50/50 px-4 py-3">{pie}</div>}
     </div>
   );
 }
 
 export function Th({ children, className }: { children?: React.ReactNode; className?: string }) {
   return (
-    <th scope="col" className={cx("bg-slate-50 px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500", className)}>
+    <th
+      scope="col"
+      className={cx("border-b border-slate-200 bg-slate-50 px-4 py-2.5 text-[11px] font-semibold tracking-wider whitespace-nowrap text-slate-500 uppercase", className)}
+    >
       {children}
     </th>
   );
 }
 
 export function Td({ children, className }: { children?: React.ReactNode; className?: string }) {
-  return <td className={cx("border-t border-slate-100 px-4 py-3 align-middle text-slate-700", className)}>{children}</td>;
+  return <td className={cx("border-t border-slate-100 px-4 py-3 align-middle text-slate-700 [tr:first-child>&]:border-t-0", className)}>{children}</td>;
+}
+
+// ------------------------------------------------------------------ filtros
+
+/**
+ * Formulario GET de filtros de un listado (funciona sin JavaScript). La grilla la decide
+ * cada página con `className` (p. ej. "sm:grid-cols-2 lg:grid-cols-6").
+ */
+export function BarraFiltros({ children, className, etiqueta = "Filtros" }: { children: React.ReactNode; className?: string; etiqueta?: string }) {
+  return (
+    <form role="search" aria-label={etiqueta} className={cx("grid gap-3 rounded-xl border border-slate-200/80 bg-white p-4 shadow-tarjeta", className)}>
+      {children}
+    </form>
+  );
+}
+
+/** Caja de búsqueda con lupa, para usar dentro de BarraFiltros. */
+export function Buscador({
+  nombre = "q",
+  etiqueta = "Buscar",
+  className,
+  ...resto
+}: { nombre?: string; etiqueta?: string } & Omit<React.InputHTMLAttributes<HTMLInputElement>, "name" | "type">) {
+  const id = resto.id ?? `buscar-${nombre}`;
+  return (
+    <div className={cx("relative", className)}>
+      <label htmlFor={id} className="sr-only">
+        {etiqueta}
+      </label>
+      <Search aria-hidden className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" />
+      <input {...resto} id={id} type="search" name={nombre} className={cx(claseControl, "h-10 pl-9")} />
+    </div>
+  );
+}
+
+/** Conmutador segmentado por enlaces (vista tabla/tablero, activos/archivados…). */
+export function Segmentado({
+  etiqueta,
+  items,
+}: {
+  etiqueta: string;
+  items: { href: string; texto: string; activo: boolean; icono?: LucideIcon }[];
+}) {
+  return (
+    <div role="group" aria-label={etiqueta} className="inline-flex rounded-lg border border-slate-200 bg-slate-100/80 p-0.5">
+      {items.map(({ href, texto, activo, icono: Icono }) => (
+        <Link
+          key={href}
+          href={href}
+          aria-current={activo ? "true" : undefined}
+          className={cx(
+            "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+            activo ? "bg-white text-marca-800 shadow-sm ring-1 ring-slate-200" : "text-slate-600 hover:text-slate-900",
+          )}
+        >
+          {Icono && <Icono aria-hidden className="size-4" />}
+          {texto}
+        </Link>
+      ))}
+    </div>
+  );
 }
 
 /** Paginación por enlaces (funciona sin JavaScript). */

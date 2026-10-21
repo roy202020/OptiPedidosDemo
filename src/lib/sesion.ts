@@ -71,6 +71,7 @@ export type Sede = {
   activa: boolean;
   direccion: string | null;
   telefono: string | null;
+  horario: string | null;
   whatsapp_phone_number_id: string | null;
 };
 
@@ -83,7 +84,7 @@ export const obtenerSedes = cache(async (): Promise<Sede[]> => {
   const supabase = await crearClienteServidor();
   const { data, error } = await supabase
     .from("sedes")
-    .select("id, nombre, activa, direccion, telefono, whatsapp_phone_number_id")
+    .select("id, nombre, activa, direccion, telefono, horario, whatsapp_phone_number_id")
     .eq("optica_id", optica.id)
     .order("activa", { ascending: false })
     .order("nombre");

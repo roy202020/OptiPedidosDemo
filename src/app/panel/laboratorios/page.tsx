@@ -1,4 +1,4 @@
-import { AlarmClock, FlaskConical, Mail, PackageCheck, Phone, Plus } from "lucide-react";
+import { AlarmClock, FlaskConical, Mail, PackageCheck, Phone, Plus, Receipt } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
@@ -11,7 +11,10 @@ export const metadata: Metadata = { title: "Laboratorios" };
 export default function PaginaLaboratorios() {
   return (
     <>
-      <Encabezado titulo="Laboratorios" descripcion="Laboratorios con los que trabajas y su carga de trabajo actual.">
+      <Encabezado titulo="Laboratorios" descripcion="Laboratorios con los que trabajas, su carga de trabajo y sus cuentas.">
+        <EnlaceBoton href="/panel/laboratorios/tickets/nuevo" icono={Receipt}>
+          Registrar ticket
+        </EnlaceBoton>
         <EnlaceBoton href="/panel/laboratorios/nuevo" variante="primario" icono={Plus}>
           Nuevo laboratorio
         </EnlaceBoton>
@@ -45,12 +48,17 @@ async function Listado() {
         <li key={l.id}>
           <Link
             href={`/panel/laboratorios/${l.id}`}
-            className={`flex h-full flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-tarjeta transition-colors hover:border-marca-300 ${
+            className={`flex h-full flex-col rounded-xl border border-slate-200/80 bg-white p-5 shadow-tarjeta transition hover:-translate-y-px hover:border-marca-300 hover:shadow-elevada ${
               l.activo ? "" : "opacity-70"
             }`}
           >
             <div className="flex items-start justify-between gap-3">
-              <p className="font-semibold text-slate-900">{l.nombre}</p>
+              <p className="flex min-w-0 items-center gap-2.5 font-semibold text-slate-900">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-marca-50 text-marca-700 ring-1 ring-marca-100 ring-inset">
+                  <FlaskConical aria-hidden className="size-4.5" />
+                </span>
+                <span className="truncate">{l.nombre}</span>
+              </p>
               {!l.activo && <Insignia>Inactivo</Insignia>}
             </div>
             <div className="mt-1 space-y-0.5 text-sm text-slate-500">

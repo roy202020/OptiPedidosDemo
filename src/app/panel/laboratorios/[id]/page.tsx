@@ -1,14 +1,17 @@
-import { ClipboardList, Pencil, Power, PowerOff } from "lucide-react";
+import { ClipboardList, Pencil, Power, PowerOff, Receipt, Wallet } from "lucide-react";
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { Confirmacion } from "@/components/formulario";
+import { Alerta, Confirmacion } from "@/components/formulario";
 import { Cargando, Datos, Encabezado, EnlaceBoton, EstadoVacio, Insignia, Paginacion, Pestanas, Tarjeta } from "@/components/ui";
 import { obtenerLaboratorio } from "@/lib/datos/laboratorios";
 import { listarOrdenes, ORDENES_POR_PAGINA } from "@/lib/datos/ordenes";
 import { COMERCIAL, ESTADOS_COMERCIALES, type EstadoComercial } from "@/lib/ordenes/estados";
+import { tienePermiso } from "@/lib/permisos";
+import { exigirOptica, obtenerSedes } from "@/lib/sesion";
 import { hoyISO } from "@/lib/validacion/comun";
 import { TablaOrdenes } from "../../ordenes/componentes";
 import { cambiarActivo } from "../acciones";
+import { EstadoCuenta } from "./estado-cuenta";
 
 export const metadata: Metadata = { title: "Laboratorio" };
 
@@ -28,10 +31,16 @@ async function Detalle({ params, searchParams }: Props) {
   const atrasadas = sp.atrasadas === "1";
   const pagina = Math.max(1, Number.parseInt(String(sp.pagina ?? "1"), 10) || 1);
 
-  const [l, { ordenes, total }] = await Promise.all([
+  const vista = sp.vista === "cuenta" ? "cuenta" : "ordenes";
+  const [l, { ordenes, total }, optica, sedes] = await Promise.all([
     obtenerLaboratorio(id),
     listarOrdenes({ laboratorio: id, estado, atrasadas, pagina }),
+    exigirOptica(),
+    obtenerSedes(),
   ]);
+  const gestiona = tienePermiso(optica.rol, "gestionarCuentasLaboratorio");
+  const texto = (v: unknown) => (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : undefined);
+  const sedeFiltro = sedes.find((s) => s.id === sp.sede)?.id ?? null;
 
   const base = `/panel/laboratorios/${id}`;
   const href = (p: Record<string, string | undefined>) => {
@@ -46,6 +55,14 @@ async function Detalle({ params, searchParams }: Props) {
         descripcion={l.activo ? "Laboratorio activo" : <Insignia>Inactivo: no se ofrece en órdenes nuevas</Insignia>}
         volver={{ href: "/panel/laboratorios", texto: "Laboratorios" }}
       >
+        <EnlaceBoton href={`/panel/laboratorios/tickets/nuevo?laboratorio=${id}`} icono={Receipt}>
+          Registrar ticket
+        </EnlaceBoton>
+        {gestiona && (
+          <EnlaceBoton href={`/panel/laboratorios/pagos/nuevo?laboratorio=${id}`} icono={Wallet}>
+            Registrar pago
+          </EnlaceBoton>
+        )}
         <EnlaceBoton href={`${base}/editar`} icono={Pencil}>
           Editar
         </EnlaceBoton>
@@ -69,11 +86,38 @@ async function Detalle({ params, searchParams }: Props) {
           items={[
             { titulo: "Contacto", valor: l.contacto ?? "—" },
             { titulo: "Teléfono", valor: l.telefono ? <a href={`tel:${l.telefono.replace(/\s/g, "")}`} className="text-marca-700 hover:underline">{l.telefono}</a> : "—" },
+            { titulo: "Crédito", valor: l.dias_credito === 0 ? "Contado" : `${l.dias_credito} días` },
             { titulo: "Correo", valor: l.email ? <a href={`mailto:${l.email}`} className="break-all text-marca-700 hover:underline">{l.email}</a> : "—" },
           ]}
         />
       </Tarjeta>
 
+      <div className="mb-6">
+        <Pestanas
+          etiqueta="Secciones del laboratorio"
+          items={[
+            { href: base, texto: "Órdenes asignadas", activo: vista === "ordenes" },
+            { href: `${base}?vista=cuenta`, texto: gestiona ? "Estado de cuenta" : "Tickets", activo: vista === "cuenta" },
+          ]}
+        />
+      </div>
+
+      {vista === "cuenta" ? (
+        <>
+          {sp.pagado === "1" && (
+            <div className="mb-6">
+              <Alerta tipo="exito">Pago registrado.</Alerta>
+            </div>
+          )}
+          <EstadoCuenta
+            laboratorio={id}
+            sedes={sedes}
+            gestiona={gestiona}
+            filtros={{ sede: sedeFiltro, desde: texto(sp.desde), hasta: texto(sp.hasta) }}
+          />
+        </>
+      ) : (
+      <>
       <h2 className="mb-3 text-base font-semibold text-slate-900">Órdenes asignadas</h2>
       <div className="mb-4">
         <Pestanas
@@ -101,6 +145,8 @@ async function Detalle({ params, searchParams }: Props) {
             />
           }
         />
+      )}
+      </>
       )}
     </>
   );

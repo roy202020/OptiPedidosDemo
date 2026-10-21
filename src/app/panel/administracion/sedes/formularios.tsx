@@ -27,6 +27,17 @@ export function FormularioSede({ accion, inicial, nueva }: { accion: Accion; ini
         <Campo id={id("telefono")} nombre="telefono" etiqueta="Teléfono" tipo="tel" maxLength={30} defaultValue={v.telefono} errores={e.telefono} />
         <Campo id={id("direccion")} nombre="direccion" etiqueta="Dirección" maxLength={200} defaultValue={v.direccion} errores={e.direccion} className="sm:col-span-2" />
         <Campo
+          id={id("horario")}
+          nombre="horario"
+          etiqueta="Horario de atención"
+          maxLength={120}
+          placeholder="Lun. a sáb. de 8:00 a 13:00"
+          defaultValue={v.horario}
+          errores={e.horario}
+          ayuda="Opcional. Lo ve el cliente al consultar el estado de su pedido."
+          className="sm:col-span-2"
+        />
+        <Campo
           id={id("whatsapp")}
           nombre="whatsapp_phone_number_id"
           etiqueta="Id del número de WhatsApp (Meta)"

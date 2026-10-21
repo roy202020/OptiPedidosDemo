@@ -1,7 +1,7 @@
 "use client";
 
 import type { LucideIcon } from "lucide-react";
-import { CircleAlert, CircleCheck, Info, LoaderCircle, X } from "lucide-react";
+import { CircleAlert, CircleCheck, Info, LoaderCircle, TriangleAlert, X } from "lucide-react";
 import { createContext, useActionState, useContext, useEffect, useId, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import type { EstadoFormulario } from "@/lib/estado-formulario";
@@ -207,13 +207,13 @@ const ALERTAS = {
   error: { clase: "border-red-200 bg-red-50 text-red-800", icono: CircleAlert, rol: "alert" },
   exito: { clase: "border-emerald-200 bg-emerald-50 text-emerald-800", icono: CircleCheck, rol: "status" },
   info: { clase: "border-marca-200 bg-marca-50 text-marca-800", icono: Info, rol: "status" },
-  aviso: { clase: "border-amber-200 bg-amber-50 text-amber-900", icono: Info, rol: "status" },
+  aviso: { clase: "border-amber-200 bg-amber-50 text-amber-900", icono: TriangleAlert, rol: "status" },
 } as const;
 
 export function Alerta({ tipo, children }: { tipo: keyof typeof ALERTAS; children: React.ReactNode }) {
   const { clase, icono: Icono, rol } = ALERTAS[tipo];
   return (
-    <div role={rol} className={cx("flex items-start gap-2 rounded-lg border px-3 py-2.5 text-sm", clase)}>
+    <div role={rol} className={cx("flex items-start gap-2.5 rounded-lg border px-3.5 py-3 text-sm", clase)}>
       <Icono aria-hidden className="mt-0.5 size-4 shrink-0" />
       <div>{children}</div>
     </div>

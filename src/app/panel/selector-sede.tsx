@@ -16,9 +16,16 @@ export function SelectorSede({ sedes, actual, todas }: { sedes: Opcion[]; actual
 
   if (sedes.length <= 1) {
     return (
-      <p className="flex items-center gap-1.5 text-sm text-slate-600">
-        <MapPin aria-hidden className="size-4 text-marca-600" />
-        {sedes[0] ? `Sede ${sedes[0].nombre}` : "Sin sede asignada"}
+      <p className="inline-flex items-center gap-1.5 rounded-full bg-marca-50 px-2.5 py-1 text-xs font-medium text-marca-800 ring-1 ring-marca-100 ring-inset">
+        <MapPin aria-hidden className="size-3.5 text-marca-600" />
+        {sedes[0] ? (
+          <>
+            <span className="sr-only">Sede: </span>
+            {sedes[0].nombre}
+          </>
+        ) : (
+          "Sin sede asignada"
+        )}
       </p>
     );
   }

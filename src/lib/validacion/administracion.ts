@@ -26,6 +26,7 @@ export const esquemaSede = z.object({
   nombre: z.string().trim().min(1, "Escribe el nombre de la sede").max(80, "Máximo 80 caracteres"),
   direccion: textoOpcional(200),
   telefono: textoOpcional(30),
+  horario: textoOpcional(120),
   whatsapp_phone_number_id: z.preprocess(
     (v) => (typeof v === "string" && v.trim() !== "" ? v.replace(/\s/g, "") : null),
     z.string().regex(/^[0-9]{5,30}$/, "Es el número largo («Phone number ID») que da Meta: solo dígitos").nullable(),

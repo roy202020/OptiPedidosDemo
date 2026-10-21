@@ -44,3 +44,6 @@ next-env.d.ts
 # supabase (archivos locales del CLI)
 /supabase/.temp/
 /supabase/.branches/
+
+# credenciales de usuarios de prueba (solo local)
+supabase/usuarios-prueba.local.md

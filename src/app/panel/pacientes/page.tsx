@@ -2,7 +2,7 @@ import { Archive, Plus, Search, Users } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
-import { Cargando, Encabezado, EnlaceBoton, EstadoVacio, Insignia, Paginacion, Tabla, Td, Th, claseBoton, claseControl } from "@/components/ui";
+import { Avatar, BarraFiltros, Buscador, Cargando, Encabezado, EnlaceBoton, EstadoVacio, Insignia, Paginacion, Segmentado, Tabla, Td, Th, claseBoton } from "@/components/ui";
 import { listarPacientes, PACIENTES_POR_PAGINA } from "@/lib/datos/pacientes";
 import { edad } from "@/lib/formato";
 
@@ -42,40 +42,21 @@ async function Listado({ searchParams }: Pick<Props, "searchParams">) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <form role="search" className="flex min-w-0 flex-1 gap-2">
-          <div className="relative min-w-0 flex-1">
-            <Search aria-hidden className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" />
-            <input
-              type="search"
-              name="q"
-              defaultValue={q}
-              placeholder="Buscar por nombre, apellido o documento"
-              aria-label="Buscar pacientes"
-              className={`${claseControl} h-10 pl-9`}
-            />
-          </div>
-          {archivados && <input type="hidden" name="archivados" value="1" />}
-          <button className={claseBoton("secundario")}>Buscar</button>
-        </form>
-        <div role="group" aria-label="Filtro de estado" className="inline-flex rounded-lg border border-slate-300 bg-white p-0.5 shadow-sm">
-          {[
-            { texto: "Activos", valor: false },
-            { texto: "Archivados", valor: true },
-          ].map((f) => (
-            <Link
-              key={f.texto}
-              href={href({ archivados: f.valor ? "1" : undefined, pagina: undefined })}
-              aria-current={archivados === f.valor ? "true" : undefined}
-              className={`rounded-md px-3 py-1.5 text-sm font-medium ${
-                archivados === f.valor ? "bg-marca-700 text-white" : "text-slate-600 hover:bg-slate-100"
-              }`}
-            >
-              {f.texto}
-            </Link>
-          ))}
-        </div>
-      </div>
+      <BarraFiltros etiqueta="Buscar pacientes" className="items-center sm:grid-cols-[minmax(0,1fr)_auto_auto]">
+        <Buscador defaultValue={q} placeholder="Buscar por nombre, apellido o documento" etiqueta="Buscar pacientes" />
+        {archivados && <input type="hidden" name="archivados" value="1" />}
+        <button className={claseBoton("secundario")}>
+          <Search aria-hidden className="size-4" />
+          Buscar
+        </button>
+        <Segmentado
+          etiqueta="Filtro de estado"
+          items={[
+            { texto: "Activos", href: href({ archivados: undefined, pagina: undefined }), activo: !archivados, icono: Users },
+            { texto: "Archivados", href: href({ archivados: "1", pagina: undefined }), activo: archivados, icono: Archive },
+          ]}
+        />
+      </BarraFiltros>
 
       {pacientes.length === 0 ? (
         q ? (
@@ -109,14 +90,21 @@ async function Listado({ searchParams }: Pick<Props, "searchParams">) {
             {pacientes.map((p) => (
               <tr key={p.id} className="hover:bg-slate-50">
                 <Td>
-                  <Link href={`/panel/pacientes/${p.id}`} className="font-medium text-marca-800 hover:underline">
-                    {p.apellidos}, {p.nombres}
-                  </Link>
-                  {p.archivado_en && (
-                    <span className="ml-2">
-                      <Insignia>Archivado</Insignia>
+                  <div className="flex items-center gap-3">
+                    <span className="hidden sm:block">
+                      <Avatar chico texto={`${p.nombres} ${p.apellidos}`} />
                     </span>
-                  )}
+                    <div className="min-w-0">
+                      <Link href={`/panel/pacientes/${p.id}`} className="font-medium text-marca-800 hover:underline">
+                        {p.apellidos}, {p.nombres}
+                      </Link>
+                      {p.archivado_en && (
+                        <span className="ml-2">
+                          <Insignia>Archivado</Insignia>
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </Td>
                 <Td className="hidden sm:table-cell">{p.numero_documento ? `${p.tipo_documento} ${p.numero_documento}` : "—"}</Td>
                 <Td className="hidden md:table-cell tabular-nums">{edad(p.fecha_nacimiento) ?? "—"}</Td>

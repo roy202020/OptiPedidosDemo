@@ -152,6 +152,13 @@ export type OrdenDetalle = Omit<OrdenResumen, "sede"> & {
   precio: number;
   descuento: number;
   confirmada_en: string | null;
+  /** Código de la consulta pública del estado (/estado/{codigo}). */
+  codigo_consulta: string;
+  /** Entrega autorizada con saldo pendiente (0015). */
+  entrega_con_saldo_monto: number | null;
+  entrega_con_saldo_motivo: string | null;
+  entrega_con_saldo_por: string | null;
+  entrega_con_saldo_en: string | null;
   paciente: OrdenResumen["paciente"] & { email: string | null };
   laboratorio: { id: string; nombre: string; telefono: string | null; contacto: string | null; activo: boolean };
   receta: { id: string; fecha_examen: string; profesional: string | null; anulada_en: string | null };
@@ -178,7 +185,7 @@ export async function obtenerOrden(id: string) {
          ojos:orden_ojos(*),
          historial:orden_historial_estados(id, desde, hasta, usuario_id, creado_en),
          observaciones:orden_observaciones(id, texto, creado_por, creado_en),
-         pagos:orden_pagos(id, importe, medio, fecha, creado_por, creado_en, anulado_en, anulado_por, motivo_anulacion)`,
+         pagos:orden_pagos(id, importe, medio, numero_operacion, caja_id, fecha, creado_por, creado_en, anulado_en, anulado_por, motivo_anulacion)`,
       )
       .eq("optica_id", optica.id)
       .eq("id", id)

@@ -1,4 +1,4 @@
-import { Ban, Mail, MessageCircle, Pencil, Phone, Printer, RotateCw, Send, Undo2 } from "lucide-react";
+import { Ban, Mail, MessageCircle, Pencil, Phone, Printer, QrCode, Receipt, RefreshCw, RotateCw, Send, Undo2 } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
@@ -17,15 +17,20 @@ import {
   numeroOrden,
   type EstadoInterno,
 } from "@/lib/ordenes/estados";
+import { ticketsDeOrden } from "@/lib/datos/cuentas-laboratorio";
 import { obtenerSuscripcion } from "@/lib/datos/suscripcion";
+import { tienePermiso } from "@/lib/permisos";
+import { EstadoTicket } from "../../laboratorios/componentes-cuentas";
 import { avisoDeOrden, type Aviso } from "@/lib/notificaciones";
 import { enlaceLentesListos } from "@/lib/ordenes/mensaje-paciente";
 import { enlaceWhatsAppLaboratorio } from "@/lib/ordenes/mensaje-laboratorio";
 import { exigirOptica } from "@/lib/sesion";
 import { crearClienteServidor } from "@/lib/supabase/servidor";
-import { MEDIOS_PAGO, resumenPagos } from "@/lib/ordenes/pagos";
+import { NOMBRE_MEDIO, resumenPagos } from "@/lib/ordenes/pagos";
 import { hoyISO, hoyLimaISO } from "@/lib/validacion/comun";
-import { agregarObservacion, anularPago, cambiarEstado, registrarPago, reintentarAviso } from "../acciones";
+import { urlPublica } from "@/lib/datos/consulta-publica";
+import { codigoLegible, DIAS_TRAS_ENTREGA, enlaceConsulta, venceEnlace } from "@/lib/ordenes/consulta-publica";
+import { agregarObservacion, anularPago, cambiarEstado, entregarConSaldo, regenerarCodigoConsulta, registrarPago, reintentarAviso } from "../acciones";
 import { InsigniaEstado, MarcasOrden } from "../componentes";
 import { LunasInventario } from "./lunas-inventario";
 import { NuevaObservacion } from "./nueva-observacion";
@@ -59,6 +64,8 @@ async function Detalle({ params, searchParams }: Props) {
     exigirOptica(),
     obtenerSuscripcion(),
   ]);
+  const [tickets, caja] = await Promise.all([ticketsDeOrden(id), (await crearClienteServidor()).rpc("caja_abierta", { p_sede: o.sede.id })]);
+  const gestionaCobros = tienePermiso(optica.rol, "gestionarCobros");
   const supabase = await crearClienteServidor();
   const { data: datosOptica } = await supabase.from("opticas").select("nombre, telefono").eq("id", optica.id).single();
   const whatsapp = enlaceWhatsAppLaboratorio(o, {
@@ -67,6 +74,7 @@ async function Detalle({ params, searchParams }: Props) {
   });
   const hoy = hoyISO();
   const cobro = resumenPagos(o, o.pagos);
+  const consulta = enlaceConsulta(await urlPublica(), o.codigo_consulta);
 
   // Primero los avances, luego "devolver" y al final "anular".
   const orden = (e: EstadoInterno) => (e === "anulada" ? 99 : e === "borrador" ? 98 : ESTADOS_INTERNOS.indexOf(e));
@@ -85,9 +93,13 @@ async function Detalle({ params, searchParams }: Props) {
         }
         volver={{ href: "/panel/ordenes", texto: "Órdenes" }}
       >
-        <a href={`/imprimir/orden/${id}?auto=1`} target="_blank" rel="noopener" className={claseBoton("secundario")}>
+        <a href={`/imprimir/orden/${id}?copia=laboratorio&auto=1`} target="_blank" rel="noopener" className={claseBoton("secundario")}>
           <Printer aria-hidden className="size-4" />
-          Imprimir
+          Imprimir ticket del laboratorio
+        </a>
+        <a href={`/imprimir/orden/${id}?copia=paciente&auto=1`} target="_blank" rel="noopener" className={claseBoton("secundario")}>
+          <Printer aria-hidden className="size-4" />
+          Imprimir comprobante del paciente
         </a>
         {o.estado !== "anulada" && (
           <a
@@ -107,7 +119,7 @@ async function Detalle({ params, searchParams }: Props) {
           </EnlaceBoton>
         )}
         {destinos.map((hasta) => (
-          <BotonTransicion key={hasta} orden={o} hasta={hasta} principal={hasta === principal} saldo={cobro.saldo} />
+          <BotonTransicion key={hasta} orden={o} hasta={hasta} principal={hasta === principal} saldo={cobro.saldo} autoriza={gestionaCobros} />
         ))}
       </Encabezado>
 
@@ -250,7 +262,8 @@ async function Detalle({ params, searchParams }: Props) {
                   <li key={p.id} className="flex items-start justify-between gap-3 text-sm">
                     <div className={p.anulado_en ? "text-slate-400" : undefined}>
                       <p className="font-medium tabular-nums">
-                        <span className={p.anulado_en ? "line-through" : undefined}>{soles(p.importe)}</span> · {MEDIOS_PAGO[p.medio]}
+                        <span className={p.anulado_en ? "line-through" : undefined}>{soles(p.importe)}</span> · {NOMBRE_MEDIO[p.medio] ?? p.medio}
+                        {p.numero_operacion && <span className="font-normal text-slate-500"> · op. {p.numero_operacion}</span>}
                       </p>
                       <p className="text-xs text-slate-500">
                         {fecha(p.fecha)} · {usuario(p.creado_por)}
@@ -261,7 +274,13 @@ async function Detalle({ params, searchParams }: Props) {
                         </p>
                       )}
                     </div>
+                    <div className="flex shrink-0 flex-col items-end gap-1">
                     {!p.anulado_en && (
+                      <Link href={`/imprimir/cobro/${p.id}`} target="_blank" className="text-xs font-medium text-marca-700 hover:underline">
+                        Recibo
+                      </Link>
+                    )}
+                    {!p.anulado_en && gestionaCobros && (
                       <Confirmacion
                         accion={anularPago.bind(null, p.id, id)}
                         titulo={`Anular pago de ${soles(p.importe)}`}
@@ -275,6 +294,7 @@ async function Detalle({ params, searchParams }: Props) {
                         <Campo id={`motivo-${p.id}`} nombre="motivo" etiqueta="Motivo de la anulación" required maxLength={300} />
                       </Confirmacion>
                     )}
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -282,7 +302,14 @@ async function Detalle({ params, searchParams }: Props) {
 
             {o.estado !== "anulada" && cobro.saldo > 0 && (
               <div className="mt-4 border-t border-slate-100 pt-4">
-                <RegistrarPago accion={registrarPago.bind(null, id)} saldo={cobro.saldo.toFixed(2)} hoy={hoyLimaISO()} />
+                <RegistrarPago accion={registrarPago.bind(null, id)} saldo={cobro.saldo.toFixed(2)} hoy={hoyLimaISO()} hayCaja={Boolean(caja.data)} />
+              </div>
+            )}
+            {o.entrega_con_saldo_en && (
+              <div className="mt-4">
+                <Alerta tipo="aviso">
+                  Entregada con saldo de {soles(o.entrega_con_saldo_monto)} el {fechaHora(o.entrega_con_saldo_en)}, autorizado por {usuario(o.entrega_con_saldo_por)}: {o.entrega_con_saldo_motivo}
+                </Alerta>
               </div>
             )}
             <p className="mt-3 text-xs text-slate-500">
@@ -302,10 +329,28 @@ async function Detalle({ params, searchParams }: Props) {
               manual={
                 suscripcion.incluye.whatsapp_api
                   ? undefined
-                  : { url: enlaceLentesListos(o.paciente, numeroOrden(o.numero), `${datosOptica?.nombre ?? optica.nombre} (sede ${o.sede.nombre})`) }
+                  : { url: enlaceLentesListos(o.paciente, numeroOrden(o.numero), `${datosOptica?.nombre ?? optica.nombre} (sede ${o.sede.nombre})`, consulta, cobro.saldo) }
               }
             />
           )}
+
+          <TarjetaLaboratorio
+            ordenId={id}
+            laboratorioId={o.laboratorio.id}
+            tickets={tickets}
+            ventaNeta={Number(o.precio) - Number(o.descuento)}
+            verGanancia={tienePermiso(optica.rol, "gestionarCuentasLaboratorio")}
+            anulada={o.estado === "anulada"}
+          />
+
+          <TarjetaConsulta
+            ordenId={id}
+            codigo={o.codigo_consulta}
+            enlace={consulta}
+            anulada={o.estado === "anulada"}
+            vence={o.estado === "entregada" ? venceEnlace(o.historial.findLast((h) => h.hasta === "entregada")?.creado_en ?? o.actualizado_en) : null}
+            puedeRegenerar={tienePermiso(optica.rol, "regenerarCodigoConsulta")}
+          />
 
           <Tarjeta titulo="Paciente">
             <Link href={`/panel/pacientes/${o.paciente.id}`} className="font-medium text-marca-800 hover:underline">
@@ -406,11 +451,14 @@ function BotonTransicion({
   hasta,
   principal,
   saldo,
+  autoriza,
 }: {
   orden: OrdenDetalle;
   hasta: EstadoInterno;
   principal: boolean;
   saldo: number;
+  /** Propietario o administrador: puede autorizar la entrega con saldo. */
+  autoriza: boolean;
 }) {
   const accion = cambiarEstado.bind(null, orden.id, orden.estado, hasta);
   const numero = numeroOrden(orden.numero);
@@ -431,6 +479,35 @@ function BotonTransicion({
     );
   }
 
+  // Con saldo no se entrega: se cobra antes, o propietario/administrador autorizan con motivo (la base lo exige).
+  if (hasta === "entregada" && saldo > 0) {
+    if (!autoriza) {
+      return (
+        <span className="max-w-xs text-xs text-amber-800">
+          Para entregar, cobra el saldo de {soles(saldo)} o pide a un administrador que autorice la entrega con saldo.
+        </span>
+      );
+    }
+    return (
+      <Confirmacion
+        accion={entregarConSaldo.bind(null, orden.id)}
+        titulo={`Entregar con saldo · ${numero}`}
+        descripcion={
+          <Alerta tipo="aviso">
+            Queda un saldo pendiente de <strong className="tabular-nums">{soles(saldo)}</strong>. Si el paciente se lleva los lentes sin pagarlo,
+            indica el motivo: quedará registrado quién lo autorizó. El saldo seguirá en «Saldos pendientes».
+          </Alerta>
+        }
+        textoBoton="Entregar con saldo"
+        varianteBoton={principal ? "primario" : "secundario"}
+        textoConfirmar="Autorizar y entregar"
+        variante="primario"
+      >
+        <Campo nombre="motivo" etiqueta="Motivo" required maxLength={300} />
+      </Confirmacion>
+    );
+  }
+
   const descripciones: Partial<Record<EstadoInterno, string>> = {
     enviada: "La orden ya no se podrá editar. Podrás devolverla a venta iniciada mientras el laboratorio no la reciba.",
     recibida_optica: "Los lentes llegaron a la óptica. Si el paciente autorizó avisos por WhatsApp, se le enviará un mensaje a su celular.",
@@ -443,19 +520,7 @@ function BotonTransicion({
     <Confirmacion
       accion={accion}
       titulo={`${ACCION_HACIA[hasta]} · ${numero}`}
-      descripcion={
-        hasta === "entregada" && saldo > 0 ? (
-          <div className="flex flex-col gap-3">
-            <p>{descripcion}</p>
-            <Alerta tipo="aviso">
-              Queda un saldo pendiente de <strong className="tabular-nums">{soles(saldo)}</strong>. Regístralo en «Importe» antes de entregar,
-              o confirma si el paciente se lleva los lentes con deuda.
-            </Alerta>
-          </div>
-        ) : (
-          descripcion
-        )
-      }
+      descripcion={descripcion}
       textoBoton={ACCION_HACIA[hasta]}
       iconoBoton={hasta === "borrador" ? <Undo2 /> : undefined}
       varianteBoton={principal ? "primario" : "secundario"}
@@ -510,6 +575,128 @@ function TarjetaAviso({ aviso: a, ordenId, manual }: { aviso: Aviso; ordenId: st
             variante="primario"
             pendiente="Enviando…"
           />
+        </div>
+      )}
+    </Tarjeta>
+  );
+}
+
+/** Enlace público para que el cliente vea el estado del pedido, con regeneración si se filtró. */
+function TarjetaConsulta({
+  ordenId,
+  codigo,
+  enlace,
+  anulada,
+  vence,
+  puedeRegenerar,
+}: {
+  ordenId: string;
+  codigo: string;
+  enlace: string;
+  anulada: boolean;
+  /** Último día del enlace si la orden ya se entregó. */
+  vence: string | null;
+  puedeRegenerar: boolean;
+}) {
+  const vencida = vence !== null && vence < hoyLimaISO();
+  return (
+    <Tarjeta
+      titulo="Consulta del cliente"
+      acciones={
+        <Insignia tono={anulada || vencida ? "rojo" : "verde"} icono={QrCode}>
+          {anulada ? "Desactivada" : vencida ? "Vencida" : "Activa"}
+        </Insignia>
+      }
+    >
+      <p className="font-mono text-base font-semibold tracking-wider text-slate-900">{codigoLegible(codigo)}</p>
+      {anulada || vencida ? (
+        <p className="mt-1 text-sm text-slate-600">
+          {anulada ? "La orden está anulada" : `Venció el ${fecha(vence)}, ${DIAS_TRAS_ENTREGA} días después de la entrega`}: el enlace ya no muestra datos.
+        </p>
+      ) : (
+        <>
+          <a href={enlace} target="_blank" rel="noopener noreferrer" className="mt-1 block break-all text-sm text-marca-700 hover:underline">
+            {enlace}
+          </a>
+          <p className="mt-2 text-xs text-slate-500">
+            Va en el ticket del cliente (QR) y en el aviso de lentes listos. Deja de funcionar {DIAS_TRAS_ENTREGA} días después de la entrega.
+          </p>
+          {puedeRegenerar && (
+            <div className="mt-3">
+              <Confirmacion
+                accion={regenerarCodigoConsulta.bind(null, ordenId)}
+                titulo="Regenerar código de consulta"
+                descripcion="El enlace y el QR actuales dejarán de funcionar. Tendrás que entregar al cliente el ticket nuevo o enviarle el enlace nuevo."
+                textoBoton="Regenerar código"
+                iconoBoton={<RefreshCw />}
+                tamanoBoton="sm"
+                textoConfirmar="Regenerar"
+                pendiente="Regenerando…"
+              />
+            </div>
+          )}
+        </>
+      )}
+    </Tarjeta>
+  );
+}
+
+/** Costo de laboratorio (tickets vigentes), estado de pago del ticket y ganancia de la orden. */
+function TarjetaLaboratorio({
+  ordenId,
+  laboratorioId,
+  tickets,
+  ventaNeta,
+  verGanancia,
+  anulada,
+}: {
+  ordenId: string;
+  laboratorioId: string;
+  tickets: Awaited<ReturnType<typeof ticketsDeOrden>>;
+  ventaNeta: number;
+  verGanancia: boolean;
+  anulada: boolean;
+}) {
+  const vigentes = tickets.filter((t) => !t.ticket.anulado_en);
+  const costo = vigentes.reduce((s, t) => s + t.monto, 0);
+  return (
+    <Tarjeta titulo="Costo de laboratorio">
+      {tickets.length === 0 ? (
+        <p className="text-sm text-slate-500">Aún sin ticket del laboratorio.</p>
+      ) : (
+        <ul className="flex flex-col gap-2 text-sm">
+          {tickets.map((t) => (
+            <li key={t.ticket.id} className="flex flex-wrap items-center justify-between gap-2">
+              <Link href={`/panel/laboratorios/tickets/${t.ticket.id}`} className={`font-medium hover:underline ${t.ticket.anulado_en ? "text-slate-400 line-through" : "text-marca-700"}`}>
+                Ticket {t.ticket.numero_ticket}
+              </Link>
+              <span className="flex items-center gap-2">
+                <EstadoTicket t={t.ticket} />
+                <span className="tabular-nums">{soles(t.monto)}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {vigentes.length > 0 && (
+        <dl className="mt-3 grid grid-cols-2 gap-1 border-t border-slate-100 pt-3 text-sm">
+          <dt className="text-slate-500">Costo laboratorio</dt>
+          <dd className="text-right tabular-nums">{soles(costo)}</dd>
+          {verGanancia && (
+            <>
+              <dt className="text-slate-500">Venta neta</dt>
+              <dd className="text-right tabular-nums">{soles(ventaNeta)}</dd>
+              <dt className="font-medium text-slate-700">Ganancia</dt>
+              <dd className={`text-right font-semibold tabular-nums ${ventaNeta - costo < 0 ? "text-red-700" : "text-emerald-700"}`}>{soles(ventaNeta - costo)}</dd>
+            </>
+          )}
+        </dl>
+      )}
+      {!anulada && (
+        <div className="mt-3">
+          <EnlaceBoton href={`/panel/laboratorios/tickets/nuevo?laboratorio=${laboratorioId}&orden=${ordenId}`} tamano="sm" icono={Receipt}>
+            Registrar ticket
+          </EnlaceBoton>
         </div>
       )}
     </Tarjeta>

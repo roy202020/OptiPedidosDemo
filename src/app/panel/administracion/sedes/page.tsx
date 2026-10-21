@@ -58,6 +58,7 @@ async function Contenido() {
                 nombre: s.nombre,
                 direccion: s.direccion ?? "",
                 telefono: s.telefono ?? "",
+                horario: s.horario ?? "",
                 whatsapp_phone_number_id: s.whatsapp_phone_number_id ?? "",
               }}
             />

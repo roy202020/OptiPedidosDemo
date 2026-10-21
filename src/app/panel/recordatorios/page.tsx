@@ -46,7 +46,7 @@ async function Contenido({ searchParams }: Pick<Props, "searchParams">) {
       <div className="grid gap-4 sm:grid-cols-3">
         <Indicador titulo="Por recordar" valor={porEnviar} detalle="Con consentimiento y celular" icono={BellRing} tono="ambar" />
         <Indicador titulo="Ya recordados" valor={enviados} detalle={`En ${mes(`${hoy.slice(0, 7)}-01`)}`} icono={Send} tono="verde" />
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-tarjeta">
+        <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-tarjeta">
           <p className="text-sm font-medium text-slate-500">WhatsApp automáticos este mes</p>
           {!config.incluye_whatsapp_api ? (
             <div className="mt-2 flex flex-col gap-2">

@@ -54,6 +54,7 @@ insert into laboratorios (id, optica_id, nombre) values
 insert into lunas_productos (id, optica_id, nombre) values
   ('d3000000-0000-0000-0000-000000000001', 'd0000000-0000-0000-0000-00000000000d', 'Resina AR');
 
+insert into cajas (optica_id, sede_id, abierta_por, monto_inicial) select s.optica_id, s.id, '00000000-0000-0000-0000-000000000000', 0 from sedes s where not exists (select 1 from cajas c where c.sede_id = s.id and c.cerrada_en is null);  -- caja abierta: el efectivo entra a la caja (0015)
 set local role authenticated;
 create temp table t (clave text primary key, id uuid) on commit drop;
 grant all on t to authenticated;

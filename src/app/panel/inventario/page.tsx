@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { Alerta } from "@/components/formulario";
 import {
+  BarraFiltros,
   Cargando,
   claseBoton,
   claseControl,
@@ -27,6 +28,7 @@ import {
 } from "@/lib/datos/inventario";
 import { enPares, textoMedida, TIPOS_LUNA, TIPOS_MOVIMIENTO, VISIONES } from "@/lib/inventario/medidas";
 import { leerNumero } from "@/lib/validacion/receta";
+import { graduacion } from "@/lib/formato";
 
 export const metadata: Metadata = { title: "Inventario de lunas" };
 
@@ -36,7 +38,10 @@ type Vista = "existencias" | "productos" | "reponer" | "movimientos";
 export default function PaginaInventario({ searchParams }: Props) {
   return (
     <>
-      <Encabezado titulo="Inventario de lunas" descripcion="Existencias por medida exacta, en lunas sueltas (2 lunas = 1 par).">
+      <Encabezado
+        titulo="Inventario de lunas"
+        descripcion="Cada combinación exacta de esfera y cilindro es una existencia distinta. Se cuenta en lunas sueltas (2 lunas = 1 par)."
+      >
         <EnlaceBoton href="/panel/inventario/productos/nuevo" icono={Plus}>
           Nuevo producto
         </EnlaceBoton>
@@ -66,8 +71,8 @@ async function Contenido({ searchParams }: Pick<Props, "searchParams">) {
       <Pestanas
         etiqueta="Secciones del inventario"
         items={[
-          { href: "/panel/inventario", texto: "Existencias", activo: vista === "existencias" },
-          { href: "/panel/inventario?vista=productos", texto: "Productos", activo: vista === "productos" },
+          { href: "/panel/inventario", texto: "Existencias por medida", activo: vista === "existencias" },
+          { href: "/panel/inventario?vista=productos", texto: "Productos (tipos de luna)", activo: vista === "productos" },
           { href: "/panel/inventario?vista=reponer", texto: "Reposición", activo: vista === "reponer" },
           { href: "/panel/inventario?vista=movimientos", texto: "Movimientos", activo: vista === "movimientos" },
         ]}
@@ -75,7 +80,19 @@ async function Contenido({ searchParams }: Pick<Props, "searchParams">) {
     </div>
   );
 
-  if (vista === "productos") return <>{pestanas}<Productos /></>;
+  if (vista === "productos")
+    return (
+      <>
+        {pestanas}
+        <div className="mb-4">
+          <Alerta tipo="info">
+            Un producto es el <strong>tipo de luna</strong> (material, índice, visión y tratamiento) sin medida. Su stock se lleva por cada
+            combinación exacta de esfera y cilindro, que ves en «Existencias por medida» o al abrir el producto.
+          </Alerta>
+        </div>
+        <Productos />
+      </>
+    );
   if (vista === "movimientos") return <>{pestanas}<Movimientos pagina={pagina} compra={texto(sp.compra)} /></>;
 
   const filtros: FiltrosExistencias = {
@@ -125,7 +142,7 @@ async function Existencias({ filtros, vista, sp }: { filtros: FiltrosExistencias
       {vista === "reponer" && (
         <Alerta tipo="info">Medidas con mínimo configurado que están en o bajo el mínimo, o agotadas. Ordénalas a tu proveedor.</Alerta>
       )}
-      <form className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-tarjeta sm:grid-cols-2 lg:grid-cols-7">
+      <BarraFiltros etiqueta="Buscar medidas" className="sm:grid-cols-2 lg:grid-cols-7">
         {vista === "reponer" && <input type="hidden" name="vista" value="reponer" />}
         <select name="producto" aria-label="Producto" defaultValue={actuales.producto ?? ""} className={`${claseControl} h-10 lg:col-span-2`}>
           <option value="">Todos los productos</option>
@@ -154,7 +171,8 @@ async function Existencias({ filtros, vista, sp }: { filtros: FiltrosExistencias
             <option value="agotado">Agotadas</option>
           </select>
         )}
-        <div className="flex gap-2 sm:col-span-2 lg:col-span-7 lg:justify-end">
+        <div className="flex flex-wrap items-center gap-2 sm:col-span-2 lg:col-span-7">
+          <p className="mr-auto text-xs text-slate-500">Para una medida exacta indica esfera y cilindro juntos (cilindro en negativo).</p>
           <Link href={vista === "reponer" ? "/panel/inventario?vista=reponer" : "/panel/inventario"} className={claseBoton("fantasma")}>
             Limpiar
           </Link>
@@ -167,7 +185,7 @@ async function Existencias({ filtros, vista, sp }: { filtros: FiltrosExistencias
             Buscar
           </button>
         </div>
-      </form>
+      </BarraFiltros>
 
       {existencias.length === 0 ? (
         <EstadoVacio
@@ -201,7 +219,9 @@ function TablaExistencias({ existencias, pie }: { existencias: Existencia[]; pie
       <thead>
         <tr>
           <Th>Producto</Th>
-          <Th>Medida</Th>
+          <Th className="text-right">Esfera</Th>
+          <Th className="text-right">Cilindro</Th>
+          <Th className="hidden lg:table-cell">Detalle</Th>
           <Th className="text-right">Disponible</Th>
           <Th className="hidden text-right sm:table-cell">Stock</Th>
           <Th className="hidden text-right md:table-cell">Reservadas</Th>
@@ -216,11 +236,18 @@ function TablaExistencias({ existencias, pie }: { existencias: Existencia[]; pie
               <p className="font-medium text-slate-900">{e.producto}</p>
               <p className="text-xs text-slate-500">{[e.tratamiento, e.color_tratamiento, e.indice?.toFixed(2)].filter(Boolean).join(" · ")}</p>
             </Td>
-            <Td>
+            <Td className="text-right">
               <Link href={`/panel/inventario/variantes/${e.id}`} className="font-semibold text-marca-800 tabular-nums hover:underline">
-                {textoMedida(e)}
+                {graduacion(e.esfera)}
               </Link>
-              {e.ubicacion && <p className="text-xs text-slate-500">{e.ubicacion}</p>}
+            </Td>
+            <Td className="text-right">
+              <Link href={`/panel/inventario/variantes/${e.id}`} tabIndex={-1} className="font-semibold text-marca-800 tabular-nums hover:underline">
+                {graduacion(e.cilindro)}
+              </Link>
+            </Td>
+            <Td className="hidden text-xs text-slate-500 lg:table-cell">
+              {[e.eje != null ? `Eje ${e.eje}°` : null, e.adicion != null ? `Ad ${graduacion(e.adicion)}` : null, e.lado, e.ubicacion].filter(Boolean).join(" · ") || "—"}
             </Td>
             <Td className="text-right tabular-nums">
               <span className="font-semibold text-slate-900">{e.disponible}</span>
