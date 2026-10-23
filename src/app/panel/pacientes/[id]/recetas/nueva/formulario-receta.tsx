@@ -61,7 +61,7 @@ export function FormularioReceta({ accion, inicial, hoy, cancelar }: Props) {
 
       <fieldset className="border-t border-slate-100 pt-6">
         <legend className="mb-1 text-sm font-semibold text-slate-900">Graduación</legend>
-        <div className="overflow-x-auto">
+        <div className="receta-medidas overflow-x-auto">
           <table className="w-full min-w-[720px] text-sm">
             <thead>
               <tr className="text-xs text-slate-500">
@@ -82,11 +82,17 @@ export function FormularioReceta({ accion, inicial, hoy, cancelar }: Props) {
                   {COLUMNAS.map((c) => {
                     const nombre = `${o}_${c.campo}`;
                     return (
-                      <td key={nombre} className="px-1 py-1">
+                      <td key={nombre} data-etiqueta={c.titulo} className="px-1 py-1">
                         <input
                           name={nombre}
                           aria-label={`${o.toUpperCase()} ${c.titulo}`}
-                          inputMode={c.campo === "eje" ? "numeric" : "decimal"}
+                          inputMode={
+                            c.campo === "esfera" || c.campo === "cilindro"
+                              ? "text"
+                              : c.campo === "eje"
+                                ? "numeric"
+                                : "decimal"
+                          }
                           autoComplete="off"
                           defaultValue={v[nombre]}
                           aria-invalid={Boolean(e[nombre]?.length) || undefined}
@@ -95,7 +101,7 @@ export function FormularioReceta({ accion, inicial, hoy, cancelar }: Props) {
                       </td>
                     );
                   })}
-                  <td className="px-1 py-1">
+                  <td data-etiqueta="Base del prisma" className="px-1 py-1">
                     <select
                       name={`${o}_base_prisma`}
                       aria-label={`${o.toUpperCase()} base del prisma`}
@@ -131,7 +137,7 @@ export function FormularioReceta({ accion, inicial, hoy, cancelar }: Props) {
       <div className="border-t border-slate-100 pt-6">
         <AreaTexto nombre="observaciones" etiqueta="Observaciones" maxLength={1000} defaultValue={v.observaciones} errores={e.observaciones} />
       </div>
-      <div className="flex flex-col-reverse gap-2 border-t border-slate-100 pt-6 sm:flex-row sm:justify-end">
+      <div className="acciones-formulario flex flex-wrap justify-end gap-2">
         <EnlaceBoton href={cancelar}>Cancelar</EnlaceBoton>
         <BotonEnviar pendiente="Guardando…" icono={Save}>
           Guardar receta

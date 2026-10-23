@@ -81,7 +81,7 @@ async function Panel() {
   return (
     <>
       <Encabezado
-        titulo="Panel de control"
+        titulo="¿Qué necesitas hacer hoy?"
         descripcion={
           <span className="first-letter:uppercase">
             {fechaHoy} · {NOMBRE_ROL[optica.rol]}
@@ -89,10 +89,13 @@ async function Panel() {
         }
       >
         <EnlaceBoton href="/panel/ordenes?vista=tablero" icono={Columns3}>
-          Tablero de órdenes
+          Ver seguimiento
         </EnlaceBoton>
       </Encabezado>
 
+      <section aria-label="Tareas rápidas" className="mb-6 grid gap-3 sm:grid-cols-3">
+        {[{href:"/panel/ordenes/nueva",titulo:"Registrar pedido",detalle:"Paciente, receta y lentes",icono:Plus},{href:"/panel/cotizaciones/nueva",titulo:"Cotizar lentes",detalle:"Opciones compatibles y precios",icono:Receipt},{href:"/panel/ordenes?estado=listo_entrega",titulo:"Entregar un pedido",detalle:"Revisar saldo y registrar entrega",icono:PackageCheck}].map(({href,titulo,detalle,icono:Icono})=><Link key={href} href={href} className="flex items-center gap-3 rounded-2xl border border-marca-200 bg-white p-5 transition hover:border-marca-500 hover:shadow-elevada"><span className="rounded-xl bg-marca-50 p-3 text-marca-700"><Icono aria-hidden className="size-5"/></span><span><strong className="block text-sm text-slate-900">{titulo}</strong><span className="text-xs text-slate-500">{detalle}</span></span><ChevronRight aria-hidden className="ml-auto size-4 shrink-0 text-slate-400"/></Link>)}
+      </section>
       <section aria-label="Indicadores de órdenes" className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <Indicador titulo="Órdenes activas" valor={r.ordenesActivas} detalle="Sin entregar ni anular" icono={ClipboardList} href="/panel/ordenes" />
         <Indicador
@@ -120,12 +123,17 @@ async function Panel() {
         />
       </section>
 
+      <div className="mt-6">{recientes}</div>
+
       {(verVentas || verCuentas) && (
+        <details className="mt-6 rounded-2xl border border-slate-200 bg-white p-4">
+          <summary className="text-sm font-semibold text-slate-700">Resumen de ventas y caja</summary>
         <Suspense fallback={<Cargando alto="h-28" texto="Cargando indicadores de caja…" />}>
           <div className="mt-3 sm:mt-4">
             <IndicadoresDinero verVentas={verVentas} verCuentas={verCuentas} />
           </div>
         </Suspense>
+        </details>
       )}
 
       <div className="mt-6 grid gap-6 xl:grid-cols-3">
@@ -135,7 +143,7 @@ async function Panel() {
               <BloqueVentas />
             </Suspense>
           ) : (
-            recientes
+            <Tarjeta titulo="Atención de hoy" descripcion="Abre un pedido para revisar su estado, registrar un cobro o imprimir el ticket."><EnlaceBoton href="/panel/ordenes">Ver todos los pedidos</EnlaceBoton></Tarjeta>
           )}
         </div>
         <Suspense fallback={<Cargando alto="h-72" />}>
@@ -143,7 +151,7 @@ async function Panel() {
         </Suspense>
       </div>
 
-      {verVentas && <div className="mt-6">{recientes}</div>}
+
 
       <div className="mt-6 grid gap-6 xl:grid-cols-2">
         <ListaOrdenes

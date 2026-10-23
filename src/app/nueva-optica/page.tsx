@@ -13,7 +13,7 @@ export default function PaginaNuevaOptica() {
     <main className="flex min-h-dvh flex-col items-center justify-center px-4 py-12">
       <Marca className="mb-8" />
       <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-tarjeta sm:p-8">
-        <h1 className="text-xl font-semibold tracking-tight text-slate-900">Registra tu óptica</h1>
+        <h1 className="text-xl font-semibold leading-tight tracking-tight sm:text-2xl text-slate-900">Registra tu óptica</h1>
         <p className="mt-1 mb-6 text-sm text-slate-500">
           Quedarás como propietario. RUC, teléfono y dirección se completan después en Administración.
         </p>

@@ -63,7 +63,19 @@ export function TablaOrdenes({
   sinPaciente?: boolean;
 }) {
   return (
-    <Tabla pie={pie}>
+    <>
+    <div className="space-y-3 sm:hidden">
+      {ordenes.map(o => <Link key={o.id} href={"/panel/ordenes/"+o.id} className="block rounded-2xl border border-slate-200 bg-white p-4 shadow-tarjeta">
+        <div className="flex flex-wrap items-center justify-between gap-2"><strong className="text-sm text-marca-800">{numeroOrden(o.numero)}</strong><InsigniaEstado estado={o.estado}/></div>
+        {!sinPaciente && <p className="mt-2 font-semibold text-slate-900">{o.paciente.apellidos}, {o.paciente.nombres}</p>}
+        {!sinLaboratorio && <p className="mt-1 text-sm text-slate-500">{o.laboratorio?.nombre ?? "Sin laboratorio"}</p>}
+        <p className="mt-2 text-sm text-slate-600">Entrega: {fecha(o.fecha_entrega_prometida)}</p>
+        <div className="mt-2"><MarcasOrden orden={o} hoy={hoy}/></div>
+        <span className="mt-3 block text-xs font-medium text-marca-700">Ver pedido →</span>
+      </Link>)}
+      {pie && <div className="py-3">{pie}</div>}
+    </div>
+    <div className="hidden sm:block"><Tabla pie={pie}>
       <thead>
         <tr>
           <Th>Orden</Th>
@@ -106,6 +118,16 @@ export function TablaOrdenes({
           </tr>
         ))}
       </tbody>
-    </Tabla>
+    </Tabla></div>
+    </>
   );
+}
+
+/** Etapas comerciales: no cambia las transiciones ni el historial del pedido. */
+export function ProgresoPedido({estado}: {estado: EstadoInterno}) {
+  if (estado === "anulada") return null;
+  const etapas = ["venta_iniciada", "en_laboratorio", "listo_entrega", "entregado"] as const;
+  const actual = etapas.indexOf(COMERCIAL_DE[estado] as typeof etapas[number]);
+  const ayuda = ["Completa los datos y envía el trabajo al laboratorio.", "Revisa el avance y la fecha prometida con el laboratorio.", "Avisa al paciente, revisa el saldo y registra la entrega.", "El paciente ya recibió su pedido. Puedes consultar sus comprobantes."];
+  return <section aria-label="Progreso del pedido" className="mb-6 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5"><ol className="grid grid-cols-2 gap-3 sm:grid-cols-4">{etapas.map((etapa,i)=><li key={etapa} aria-current={i===actual?"step":undefined} className={"flex items-center gap-2 rounded-xl p-2 text-xs sm:text-sm " + (i===actual?"bg-marca-50 font-semibold text-marca-800":i<actual?"text-emerald-700":"text-slate-500")}><span aria-hidden className={"flex size-7 shrink-0 items-center justify-center rounded-full border " + (i<=actual?"border-current":"border-slate-200")}>{i<actual?"✓":i+1}</span>{COMERCIAL[etapa].texto}</li>)}</ol><p className="mt-4 border-t border-slate-100 pt-3 text-sm text-slate-600">{ayuda[actual]}</p></section>;
 }

@@ -10,16 +10,16 @@ import { COMERCIAL, COMERCIAL_DE, ESTADOS_COMERCIALES, numeroOrden, type EstadoC
 import { hoyISO } from "@/lib/validacion/comun";
 import { MarcasOrden, TablaOrdenes } from "./componentes";
 
-export const metadata: Metadata = { title: "Órdenes" };
+export const metadata: Metadata = { title: "Pedidos" };
 
 type Props = PageProps<"/panel/ordenes">;
 
 export default function PaginaOrdenes({ searchParams }: Props) {
   return (
     <>
-      <Encabezado titulo="Órdenes de trabajo" descripcion="Seguimiento de cada pedido desde la venta hasta la entrega.">
+      <Encabezado titulo="Pedidos" descripcion="Seguimiento de cada pedido desde la venta hasta la entrega.">
         <EnlaceBoton href="/panel/ordenes/nueva" variante="primario" icono={Plus}>
-          Nueva orden
+          Nuevo pedido
         </EnlaceBoton>
       </Encabezado>
       <Suspense fallback={<Cargando alto="h-96" />}>
@@ -77,6 +77,9 @@ async function Contenido({ searchParams }: Pick<Props, "searchParams">) {
             ))}
           </select>
         )}
+        <details open={Boolean(filtros.laboratorio || filtros.desde || filtros.hasta || filtros.atrasadas || filtros.conSaldo)} className="sm:col-span-2 lg:col-span-6">
+          <summary className="rounded-lg py-2 text-sm font-medium text-slate-600">Más filtros: laboratorio, fechas y saldos</summary>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
         <select name="laboratorio" aria-label="Laboratorio" defaultValue={filtros.laboratorio ?? ""} className={`${claseControl} h-10`}>
           <option value="">Todos los laboratorios</option>
           {labs.map((l) => (
@@ -94,14 +97,16 @@ async function Contenido({ searchParams }: Pick<Props, "searchParams">) {
         <div className="flex flex-col gap-2 sm:col-span-2 lg:col-span-4">
           <label className="flex items-center gap-2 text-sm text-slate-700">
             <input type="checkbox" name="atrasadas" value="1" defaultChecked={filtros.atrasadas} className="size-4 accent-marca-700" />
-            Solo atrasadas (fecha prometida vencida y aún no llegan a la óptica)
+            Solo pedidos atrasados
           </label>
           <label className="flex items-center gap-2 text-sm text-slate-700">
             <input type="checkbox" name="saldo" value="1" defaultChecked={filtros.conSaldo} className="size-4 accent-marca-700" />
             Con saldo pendiente
           </label>
         </div>
-        <div className="flex items-end gap-2 sm:col-span-2 lg:col-span-2 lg:justify-end">
+          </div>
+        </details>
+        <div className="flex items-end gap-2 sm:col-span-2 lg:col-span-6 lg:justify-end">
           {hay && (
             <Link href={tablero ? "/panel/ordenes?vista=tablero" : "/panel/ordenes"} className={claseBoton("fantasma")}>
               Limpiar
@@ -119,7 +124,7 @@ async function Contenido({ searchParams }: Pick<Props, "searchParams">) {
         <Segmentado
           etiqueta="Vista"
           items={[
-            { texto: "Tabla", icono: List, href: href({ vista: undefined, pagina: undefined }), activo: !tablero },
+            { texto: "Lista", icono: List, href: href({ vista: undefined, pagina: undefined }), activo: !tablero },
             { texto: "Tablero", icono: Columns3, href: href({ vista: "tablero", pagina: undefined }), activo: tablero },
           ]}
         />
@@ -138,7 +143,7 @@ async function Listado({ filtros, hay, href }: { filtros: FiltrosOrdenes; hay: b
     ) : (
       <EstadoVacio icono={ClipboardList} titulo="Aún no hay órdenes" descripcion="Crea la primera orden a partir de la receta de un paciente.">
         <EnlaceBoton href="/panel/ordenes/nueva" variante="primario" icono={Plus}>
-          Nueva orden
+          Nuevo pedido
         </EnlaceBoton>
       </EstadoVacio>
     );
@@ -168,7 +173,7 @@ async function Tablero({ filtros }: { filtros: FiltrosOrdenes }) {
 
   return (
     <div className="-mx-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
-      <div className="grid min-w-[960px] grid-cols-4 gap-4">
+      <div className="grid gap-4 md:min-w-[960px] md:grid-cols-4">
         {COLUMNAS.map((c) => {
           const lista = por(c);
           return (

@@ -9,6 +9,8 @@ import { listarPacientes, obtenerPaciente } from "@/lib/datos/pacientes";
 import { fecha, graduacion } from "@/lib/formato";
 import { sedeParaRegistrar } from "@/lib/sesion";
 import { hoyISO } from "@/lib/validacion/comun";
+import { listarMonturas } from "@/lib/datos/monturas";
+import { tarifasParaPedidos } from "@/lib/datos/precios-ordenes";
 import { crearOrden } from "../acciones";
 import { FormularioOrden } from "../formulario-orden";
 
@@ -19,7 +21,7 @@ type Props = PageProps<"/panel/ordenes/nueva">;
 export default function PaginaNuevaOrden({ searchParams }: Props) {
   return (
     <>
-      <Encabezado titulo="Nueva orden de trabajo" volver={{ href: "/panel/ordenes", texto: "Órdenes" }} />
+      <Encabezado titulo="Registrar pedido" descripcion="Elige al paciente y completa los datos. Podrás cobrar e imprimir después de guardar." volver={{ href: "/panel/ordenes", texto: "Pedidos" }} />
       <Suspense fallback={<Cargando alto="h-96" />}>
         <Contenido searchParams={searchParams} />
       </Suspense>
@@ -37,7 +39,7 @@ async function Contenido({ searchParams }: Pick<Props, "searchParams">) {
 async function ElegirPaciente({ q }: { q: string }) {
   const { pacientes } = await listarPacientes({ q });
   return (
-    <Tarjeta titulo="1. Elige al paciente" descripcion="La orden usará una de sus recetas vigentes.">
+    <Tarjeta titulo="¿Para quién es el pedido?" descripcion="La orden usará una de sus recetas vigentes.">
       <form role="search" className="mb-4 flex gap-2">
         <div className="relative min-w-0 flex-1">
           <Search aria-hidden className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" />
@@ -92,11 +94,12 @@ function textoReceta(r: Awaited<ReturnType<typeof recetasUtilizables>>[number]) 
 
 /** Paso 2: datos de la orden. */
 async function Formulario({ pacienteId }: { pacienteId: string }) {
-  const [paciente, recetas, labs, destino] = await Promise.all([
+  const [paciente, recetas, labs, destino, tarifas] = await Promise.all([
     obtenerPaciente(pacienteId),
     recetasUtilizables(pacienteId),
     listarLaboratorios({ soloActivos: true }),
     sedeParaRegistrar(),
+    tarifasParaPedidos(),
   ]);
   const nombre = `${paciente.apellidos}, ${paciente.nombres}`;
 
@@ -125,12 +128,14 @@ async function Formulario({ pacienteId }: { pacienteId: string }) {
     );
   }
 
+  const monturas = await listarMonturas(true,destino.sede.id);
+
   // Ojos con graduación en alguna de las recetas (la base solo crea los que tiene la receta elegida).
   const ojos = (["od", "oi"] as const).filter((o) => recetas.some((r) => r[`${o}_esfera`] != null || r[`${o}_cilindro`] != null));
 
   return (
     <Tarjeta
-      titulo={`2. Datos de la orden para ${nombre}`}
+      titulo={nombre}
       descripcion={`Se registrará en la sede ${destino.sede.nombre}: ahí se recogerán los lentes.`}
       acciones={
         <Link href="/panel/ordenes/nueva" className="text-sm font-medium text-marca-700 hover:underline">
@@ -140,8 +145,10 @@ async function Formulario({ pacienteId }: { pacienteId: string }) {
     >
       <FormularioOrden
         accion={crearOrden.bind(null, pacienteId, destino.sede.id)}
-        recetas={recetas.map((r) => ({ valor: r.id, texto: textoReceta(r) }))}
+        recetas={recetas.map((r) => ({ valor: r.id, texto: textoReceta(r), rx: r, ojos: (["od", "oi"] as const).filter(o => r[`${o}_esfera`] != null || r[`${o}_cilindro`] != null) }))}
         laboratorios={labs.map((l) => ({ valor: l.id, texto: l.nombre }))}
+        monturas={monturas}
+        tarifas={tarifas}
         ojos={ojos}
         hoy={hoyISO()}
         cancelar="/panel/ordenes"

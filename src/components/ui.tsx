@@ -11,7 +11,7 @@ const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).jo
 
 /** Estilo común de inputs, selects y textareas. */
 export const claseControl =
-  "w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-marca-500 focus:ring-3 focus:ring-marca-500/15 disabled:bg-slate-50 aria-invalid:border-red-500 aria-invalid:focus:ring-red-500/15";
+  "font-sans leading-5 tracking-normal w-full rounded-lg border border-slate-300 bg-white px-3 text-base sm:text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-marca-500 focus:ring-3 focus:ring-marca-500/15 disabled:bg-slate-50 aria-invalid:border-red-500 aria-invalid:focus:ring-red-500/15";
 
 // ------------------------------------------------------------------ botones
 
@@ -19,19 +19,20 @@ export const VARIANTES_BOTON = {
   primario: "bg-marca-700 text-white shadow-sm hover:bg-marca-800 active:bg-marca-900",
   secundario: "border border-slate-300 bg-white text-slate-800 shadow-sm hover:border-slate-400 hover:bg-slate-50 active:bg-slate-100",
   peligro: "bg-red-600 text-white shadow-sm hover:bg-red-700 active:bg-red-800",
+  invertido: "text-marca-100 hover:bg-white/10 hover:text-white active:bg-white/15",
   fantasma: "text-slate-700 hover:bg-slate-100 active:bg-slate-200",
 } as const;
 
 const TAMANOS_BOTON = {
-  sm: "h-8 gap-1.5 px-2.5 text-xs",
-  md: "h-9 gap-2 px-3.5 text-sm",
+  sm: "min-h-11 sm:min-h-10 gap-1.5 px-3 py-2 text-sm",
+  md: "min-h-11 gap-2 px-4 py-2 text-sm",
 } as const;
 
 export type VarianteBoton = keyof typeof VARIANTES_BOTON;
 
 export const claseBoton = (variante: VarianteBoton = "secundario", tamano: keyof typeof TAMANOS_BOTON = "md") =>
   cx(
-    "inline-flex shrink-0 cursor-pointer items-center justify-center rounded-lg font-medium whitespace-nowrap transition-colors select-none disabled:pointer-events-none disabled:opacity-60 aria-disabled:pointer-events-none",
+    "ui-boton font-sans text-center leading-5 tracking-normal max-w-full inline-flex shrink-0 cursor-pointer items-center justify-center rounded-lg font-medium whitespace-normal transition-colors select-none disabled:pointer-events-none disabled:opacity-60 aria-disabled:pointer-events-none",
     VARIANTES_BOTON[variante],
     TAMANOS_BOTON[tamano],
   );
@@ -90,7 +91,7 @@ export function Encabezado({
       {volver && (
         <Link
           href={volver.href}
-          className="group mb-3 inline-flex items-center gap-1 rounded-md text-sm font-medium text-slate-500 transition-colors hover:text-marca-700"
+          className="group mb-3 inline-flex min-h-11 sm:min-h-8 items-center gap-1 rounded-md text-sm font-medium text-slate-500 transition-colors hover:text-marca-700"
         >
           <ChevronLeft aria-hidden className="size-4 transition-transform group-hover:-translate-x-0.5" />
           {volver.texto}
@@ -98,7 +99,7 @@ export function Encabezado({
       )}
       <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
         <div className="min-w-0">
-          <h1 className="text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">{titulo}</h1>
+          <h1 className="text-xl font-semibold leading-tight tracking-tight text-slate-900 sm:text-2xl">{titulo}</h1>
           {descripcion && <div className="mt-1 text-sm text-slate-500">{descripcion}</div>}
         </div>
         {children && <div className="flex flex-wrap items-center gap-2">{children}</div>}
@@ -111,7 +112,7 @@ export function Encabezado({
 export function Subtitulo({ children, acciones }: { children: React.ReactNode; acciones?: React.ReactNode }) {
   return (
     <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-      <h2 className="text-sm font-semibold tracking-wide text-slate-500 uppercase">{children}</h2>
+      <h2 className="text-base font-semibold leading-6 tracking-normal text-slate-700">{children}</h2>
       {acciones}
     </div>
   );
@@ -133,11 +134,11 @@ export function Tarjeta({
   sinRelleno?: boolean;
 }) {
   return (
-    <section className={cx("rounded-xl border border-slate-200/80 bg-white shadow-tarjeta", className)}>
+    <section className={cx("rounded-2xl border border-slate-200/80 bg-white shadow-tarjeta", className)}>
       {(titulo || acciones) && (
         <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
           <div className="min-w-0">
-            {titulo && <h2 className="text-[15px] font-semibold text-slate-900">{titulo}</h2>}
+            {titulo && <h2 className="text-base font-semibold leading-6 tracking-normal text-slate-900">{titulo}</h2>}
             {descripcion && <p className="mt-0.5 text-sm text-slate-500">{descripcion}</p>}
           </div>
           {acciones && <div className="flex flex-wrap gap-2">{acciones}</div>}
@@ -155,7 +156,7 @@ export function Datos({ items, columnas = 3 }: { items: { titulo: string; valor:
     <dl className={cx("grid gap-x-6 gap-y-4 text-sm", cols)}>
       {items.map((i) => (
         <div key={i.titulo} className="min-w-0">
-          <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">{i.titulo}</dt>
+          <dt className="text-xs font-medium leading-4 tracking-normal text-slate-500">{i.titulo}</dt>
           <dd className="mt-1 break-words text-slate-900">{i.valor}</dd>
         </div>
       ))}
@@ -273,7 +274,7 @@ export function Indicador({
   const contenido = (
     <>
       <div className="flex items-center justify-between gap-3">
-        <p className="text-[13px] leading-snug font-medium text-slate-500">{titulo}</p>
+        <p className="text-sm leading-5 font-medium text-slate-500">{titulo}</p>
         <span className={cx("flex size-8 shrink-0 items-center justify-center rounded-lg ring-1 ring-inset", TONOS[tono])}>
           <Icono aria-hidden className="size-4" />
         </span>
@@ -344,7 +345,7 @@ export function Th({ children, className }: { children?: React.ReactNode; classN
   return (
     <th
       scope="col"
-      className={cx("border-b border-slate-200 bg-slate-50 px-4 py-2.5 text-[11px] font-semibold tracking-wider whitespace-nowrap text-slate-500 uppercase", className)}
+      className={cx("border-b border-slate-200 bg-slate-50 px-4 py-2.5 text-xs font-medium leading-4 tracking-normal whitespace-nowrap text-slate-600", className)}
     >
       {children}
     </th>
@@ -404,7 +405,7 @@ export function Segmentado({
           href={href}
           aria-current={activo ? "true" : undefined}
           className={cx(
-            "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+            "inline-flex min-h-11 items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium leading-5 transition-colors",
             activo ? "bg-white text-marca-800 shadow-sm ring-1 ring-slate-200" : "text-slate-600 hover:text-slate-900",
           )}
         >
@@ -476,7 +477,7 @@ export function Pestanas({ items, etiqueta }: { items: { href: string; texto: st
               href={i.href}
               aria-current={i.activo ? "page" : undefined}
               className={cx(
-                "-mb-px inline-block border-b-2 px-3 py-2 text-sm font-medium whitespace-nowrap",
+                "-mb-px inline-flex min-h-11 items-center border-b-2 px-3 py-2 text-sm font-medium leading-5 whitespace-nowrap",
                 i.activo ? "border-marca-700 text-marca-800" : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700",
               )}
             >

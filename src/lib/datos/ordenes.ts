@@ -143,6 +143,7 @@ export type OrdenDetalle = Omit<OrdenResumen, "sede"> & {
   sede: { id: string; nombre: string; direccion: string | null; telefono: string | null };
   receta_id: string;
   laboratorio_id: string;
+  montura_catalogo_id: string | null;
   montura_descripcion: string | null;
   montura_origen: "optica" | "paciente" | null;
   motivo_anulacion: string | null;
@@ -150,6 +151,7 @@ export type OrdenDetalle = Omit<OrdenResumen, "sede"> & {
   creado_por: string;
   actualizado_en: string;
   precio: number;
+  precio_montura: number;
   descuento: number;
   confirmada_en: string | null;
   /** Código de la consulta pública del estado (/estado/{codigo}). */
@@ -162,6 +164,7 @@ export type OrdenDetalle = Omit<OrdenResumen, "sede"> & {
   paciente: OrdenResumen["paciente"] & { email: string | null };
   laboratorio: { id: string; nombre: string; telefono: string | null; contacto: string | null; activo: boolean };
   receta: { id: string; fecha_examen: string; profesional: string | null; anulada_en: string | null };
+  stock_montura?: {estado:"reservada"|"vendida"|"liberada"}|null;
   ojos: OrdenOjo[];
   historial: { id: string; desde: EstadoInterno | null; hasta: EstadoInterno; usuario_id: string | null; creado_en: string }[];
   observaciones: { id: string; texto: string; creado_por: string; creado_en: string }[];
@@ -183,6 +186,7 @@ export async function obtenerOrden(id: string) {
          sede:sedes(id, nombre, direccion, telefono),
          receta:recetas(id, fecha_examen, profesional, anulada_en),
          ojos:orden_ojos(*),
+         stock_montura:monturas_asignaciones(estado),
          historial:orden_historial_estados(id, desde, hasta, usuario_id, creado_en),
          observaciones:orden_observaciones(id, texto, creado_por, creado_en),
          pagos:orden_pagos(id, importe, medio, numero_operacion, caja_id, fecha, creado_por, creado_en, anulado_en, anulado_por, motivo_anulacion)`,

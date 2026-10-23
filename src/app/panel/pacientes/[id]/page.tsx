@@ -69,9 +69,14 @@ async function Detalle({ params }: Pick<PageProps<"/panel/pacientes/[id]">, "par
           </EnlaceBoton>
         )}
         {!archivado && vigente && (
-          <EnlaceBoton href={`/panel/ordenes/nueva?paciente=${id}`} variante="primario" icono={ClipboardList}>
-            Nueva orden
-          </EnlaceBoton>
+          <>
+            <EnlaceBoton href={`/panel/ordenes/nueva?paciente=${id}`} icono={ClipboardList}>
+              Nueva orden
+            </EnlaceBoton>
+            <EnlaceBoton href={`/panel/cotizaciones/nueva?paciente=${id}&receta=${vigente.id}`} variante="primario" icono={FileText}>
+              Cotizar lentes
+            </EnlaceBoton>
+          </>
         )}
       </Encabezado>
 

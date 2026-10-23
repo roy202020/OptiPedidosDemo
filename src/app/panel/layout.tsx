@@ -25,13 +25,13 @@ export default function LayoutPanel({ children }: { children: React.ReactNode })
           <Menu />
         </Suspense>
         <div className="border-b border-slate-200 bg-white/90 backdrop-blur lg:sticky lg:top-0 lg:z-20">
-          <div className="mx-auto flex min-h-16 w-full max-w-7xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2.5 sm:px-6 lg:px-8">
+          <div className="mx-auto flex min-h-16 w-full max-w-7xl flex-col items-stretch gap-3 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:px-6 lg:px-8">
             <Suspense fallback={<span className="h-9" />}>
               <BarraSuperior />
             </Suspense>
           </div>
         </div>
-        <main id="contenido" className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+        <main id="contenido" className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8 pb-24 lg:pb-8">
           <Suspense fallback={null}>
             <AvisoSuscripcion />
           </Suspense>
@@ -60,8 +60,8 @@ async function BarraSuperior() {
   const [optica, { sedes, actual }] = await Promise.all([exigirOptica(), obtenerSedeActual()]);
   return (
     <>
-      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-2">
-        <p className="min-w-0 truncate text-base font-semibold text-slate-900" title={optica.nombre}>
+      <div className="flex min-w-0 flex-1 flex-col items-stretch gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-4">
+        <p className="min-w-0 break-words text-sm font-semibold text-slate-900 sm:text-base" title={optica.nombre}>
           {optica.nombre}
         </p>
         <span aria-hidden className="hidden h-5 w-px bg-slate-200 sm:block" />
@@ -71,12 +71,12 @@ async function BarraSuperior() {
           todas={TODAS_LAS_SEDES}
         />
       </div>
-      <div className="flex items-center gap-2">
-        <EnlaceBoton href="/panel/pacientes/nuevo" icono={UserPlus} className="max-sm:px-2.5">
-          <span className="max-sm:sr-only">Nuevo paciente</span>
+      <div className="grid w-full min-w-0 grid-cols-2 gap-2 sm:flex sm:w-auto sm:items-center">
+        <EnlaceBoton href="/panel/pacientes/nuevo" icono={UserPlus} className="min-w-0 max-sm:px-3">
+          <span><span className="hidden sm:inline">Nuevo </span>Paciente</span>
         </EnlaceBoton>
-        <EnlaceBoton href="/panel/ordenes/nueva" variante="primario" icono={Plus}>
-          Nueva orden
+        <EnlaceBoton href="/panel/ordenes/nueva" variante="primario" icono={Plus} className="min-w-0 max-sm:px-3">
+          Nuevo pedido
         </EnlaceBoton>
       </div>
     </>

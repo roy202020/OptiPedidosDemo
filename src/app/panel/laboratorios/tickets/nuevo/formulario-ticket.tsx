@@ -137,7 +137,7 @@ export function FormularioTicket({
                     : `${lab.dias_credito} días de crédito: ${formatoFecha(sugerido)}.`
                   : "Elige el laboratorio para calcularlo."}
                 {vence && vence !== sugerido && (
-                  <button type="button" onClick={() => setVence(null)} className="ml-2 font-medium text-marca-700 hover:underline">
+                  <button type="button" onClick={() => setVence(null)} className="ml-2 inline-flex min-h-11 items-center text-sm font-medium text-marca-700 hover:underline">
                     Usar el calculado
                   </button>
                 )}
@@ -187,7 +187,7 @@ export function FormularioTicket({
                     type="button"
                     onClick={() => setLineas(lineas.filter((_, j) => j !== i))}
                     aria-label={`Quitar la orden ${numeroOrden(l.numero)}`}
-                    className="rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-red-600"
+                    className="ui-icono-boton text-slate-400 hover:bg-slate-100 hover:text-red-600"
                   >
                     <Trash2 aria-hidden className="size-4" />
                   </button>

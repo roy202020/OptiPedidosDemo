@@ -31,7 +31,7 @@ import { hoyISO, hoyLimaISO } from "@/lib/validacion/comun";
 import { urlPublica } from "@/lib/datos/consulta-publica";
 import { codigoLegible, DIAS_TRAS_ENTREGA, enlaceConsulta, venceEnlace } from "@/lib/ordenes/consulta-publica";
 import { agregarObservacion, anularPago, cambiarEstado, entregarConSaldo, regenerarCodigoConsulta, registrarPago, reintentarAviso } from "../acciones";
-import { InsigniaEstado, MarcasOrden } from "../componentes";
+import { InsigniaEstado, MarcasOrden, ProgresoPedido } from "../componentes";
 import { LunasInventario } from "./lunas-inventario";
 import { NuevaObservacion } from "./nueva-observacion";
 import { RegistrarPago } from "./registrar-pago";
@@ -79,27 +79,31 @@ async function Detalle({ params, searchParams }: Props) {
   // Primero los avances, luego "devolver" y al final "anular".
   const orden = (e: EstadoInterno) => (e === "anulada" ? 99 : e === "borrador" ? 98 : ESTADOS_INTERNOS.indexOf(e));
   const destinos = [...transiciones].sort((a, b) => orden(a) - orden(b));
-  const principal = destinos.find((d) => d !== "anulada" && d !== "borrador");
+  const principal = destinos.includes("recibida_optica") ? "recibida_optica" : destinos.find((d) => d !== "anulada" && d !== "borrador");
 
   return (
     <>
       <Encabezado
-        titulo={`Orden ${numeroOrden(o.numero)}`}
+        titulo={`Pedido ${numeroOrden(o.numero)}`}
         descripcion={
           <span className="flex flex-wrap items-center gap-2">
             <InsigniaEstado estado={o.estado} detalle />
             <MarcasOrden orden={o} hoy={hoy} />
           </span>
         }
-        volver={{ href: "/panel/ordenes", texto: "Órdenes" }}
+        volver={{ href: "/panel/ordenes", texto: "Pedidos" }}
       >
-        <a href={`/imprimir/orden/${id}?copia=laboratorio&auto=1`} target="_blank" rel="noopener" className={claseBoton("secundario")}>
+        {principal && <BotonTransicion orden={o} hasta={principal} principal saldo={cobro.saldo} autoriza={gestionaCobros} />}
+        <details className="relative">
+          <summary className={claseBoton("secundario")}>Tickets y más acciones</summary>
+          <div className="absolute right-0 z-20 mt-2 flex w-[min(320px,calc(100vw-2rem))] flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-flotante">
+        <a href={`/imprimir/orden/${id}?copia=laboratorio`} target="_blank" rel="noopener" className={claseBoton("secundario")}>
           <Printer aria-hidden className="size-4" />
-          Imprimir ticket del laboratorio
+          Ticket laboratorio · 80 mm
         </a>
-        <a href={`/imprimir/orden/${id}?copia=paciente&auto=1`} target="_blank" rel="noopener" className={claseBoton("secundario")}>
+        <a href={`/imprimir/orden/${id}?copia=paciente`} target="_blank" rel="noopener" className={claseBoton("secundario")}>
           <Printer aria-hidden className="size-4" />
-          Imprimir comprobante del paciente
+          Ticket paciente · 80 mm
         </a>
         {o.estado !== "anulada" && (
           <a
@@ -118,10 +122,14 @@ async function Detalle({ params, searchParams }: Props) {
             Editar
           </EnlaceBoton>
         )}
-        {destinos.map((hasta) => (
+        {destinos.filter(hasta => hasta !== principal).map((hasta) => (
           <BotonTransicion key={hasta} orden={o} hasta={hasta} principal={hasta === principal} saldo={cobro.saldo} autoriza={gestionaCobros} />
         ))}
+          </div>
+        </details>
       </Encabezado>
+
+      <ProgresoPedido estado={o.estado} />
 
       {o.estado === "anulada" && (
         <div className="mb-6">
@@ -137,14 +145,16 @@ async function Detalle({ params, searchParams }: Props) {
       )}
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
-        <div className="flex flex-col gap-6">
+        <div className="flex min-w-0 flex-col gap-6">
           <Tarjeta titulo="Trabajo">
             <Datos
               items={[
                 { titulo: "Sede", valor: o.sede.nombre },
                 { titulo: "Tipo", valor: TIPOS_TRABAJO[o.tipo_trabajo] },
+                { titulo: "Lentes del pedido", valor: o.ojos.length === 1 ? `Solo ${o.ojos[0].ojo === "OD" ? "ojo derecho (OD)" : "ojo izquierdo (OI)"}` : "Ambos ojos (2 lentes)" },
                 { titulo: "Prioridad", valor: o.prioridad === "urgente" ? <Insignia tono="ambar">Urgente</Insignia> : "Normal" },
                 { titulo: "Entrega prometida", valor: fecha(o.fecha_entrega_prometida) },
+                ...(o.montura_catalogo_id ? [{titulo:"Stock de montura",valor:o.stock_montura?.estado === "reservada" ? "1 unidad reservada" : o.stock_montura?.estado === "vendida" ? "1 unidad descontada" : o.stock_montura?.estado === "liberada" ? "Reserva liberada" : "Sin movimiento de stock registrado"}] : []),
                 { titulo: "Montura", valor: o.montura_origen ? ORIGENES_MONTURA[o.montura_origen] : "—" },
                 { titulo: "Descripción de la montura", valor: o.montura_descripcion ?? "—" },
                 {
@@ -218,7 +228,7 @@ async function Detalle({ params, searchParams }: Props) {
           </Tarjeta>
         </div>
 
-        <aside className="flex flex-col gap-6">
+        <aside className="flex min-w-0 flex-col gap-6">
           <Tarjeta
             titulo="Importe"
             descripcion="Soles, IGV incluido"
@@ -234,8 +244,9 @@ async function Detalle({ params, searchParams }: Props) {
             }
           >
             <dl className="space-y-2 text-sm">
+              {Number(o.precio_montura) > 0 && <><div className="flex justify-between"><dt className="text-slate-500">Lunas</dt><dd>{soles(Number(o.precio) - Number(o.precio_montura))}</dd></div><div className="flex justify-between"><dt className="text-slate-500">Montura</dt><dd>{soles(o.precio_montura)}</dd></div></>}
               <div className="flex justify-between">
-                <dt className="text-slate-500">Precio</dt>
+                <dt className="text-slate-500">Precio total</dt>
                 <dd className="tabular-nums">{soles(o.precio)}</dd>
               </div>
               <div className="flex justify-between">

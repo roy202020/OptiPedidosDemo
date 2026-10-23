@@ -171,14 +171,14 @@ export function FormularioCompra({
           {producto?.por_lado && (
             <div role="group" aria-label="Lado" className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
               Lado
-              <div className="inline-flex h-10 rounded-lg border border-slate-300 bg-white p-0.5">
+              <div className="inline-flex min-h-12 rounded-lg border border-slate-300 bg-white p-0.5">
                 {(["OD", "OI"] as const).map((l) => (
                   <button
                     key={l}
                     type="button"
                     onClick={() => setLado(l)}
                     aria-pressed={lado === l}
-                    className={`flex-1 rounded-md px-3 text-sm ${lado === l ? "bg-marca-700 text-white" : "text-slate-600 hover:bg-slate-100"}`}
+                    className={`min-h-11 flex-1 rounded-md px-3 text-sm font-medium leading-5 ${lado === l ? "bg-marca-700 text-white" : "text-slate-600 hover:bg-slate-100"}`}
                   >
                     {l}
                   </button>

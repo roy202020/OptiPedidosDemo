@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { cerrarSesion } from "@/app/(acceso)/acciones";
+import { claseBoton } from "@/components/ui";
 import { Marca } from "@/components/marca";
 import { exigirSuperadmin } from "@/lib/sesion";
 
@@ -35,7 +36,7 @@ async function Usuario() {
     <div className="flex items-center gap-3 text-sm">
       <span className="hidden truncate text-marca-100 sm:inline">{usuario.email}</span>
       <form action={cerrarSesion}>
-        <button className="flex items-center gap-2 rounded-lg px-3 py-1.5 font-medium text-marca-100 hover:bg-white/10 hover:text-white">
+        <button className={claseBoton("invertido")}>
           <LogOut aria-hidden className="size-4" />
           Salir
         </button>

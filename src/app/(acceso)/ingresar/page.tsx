@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: "Ingresar" };
 export default function PaginaIngresar() {
   return (
     <>
-      <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Ingresar</h1>
+      <h1 className="text-xl font-semibold leading-tight sm:text-2xl tracking-tight text-slate-900">Ingresar</h1>
       <p className="mt-1 mb-8 text-sm text-slate-500">Accede a los pedidos de tu óptica.</p>
       <FormularioIngreso />
       <p className="mt-8 text-center text-sm text-slate-500">

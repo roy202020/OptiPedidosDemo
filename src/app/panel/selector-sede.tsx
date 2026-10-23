@@ -2,7 +2,7 @@
 
 import { MapPin } from "lucide-react";
 import { useTransition } from "react";
-import { claseControl } from "@/components/ui";
+import { claseBoton, claseControl } from "@/components/ui";
 import { elegirSede } from "./acciones-sede";
 
 type Opcion = { id: string; nombre: string; activa: boolean };
@@ -16,12 +16,12 @@ export function SelectorSede({ sedes, actual, todas }: { sedes: Opcion[]; actual
 
   if (sedes.length <= 1) {
     return (
-      <p className="inline-flex items-center gap-1.5 rounded-full bg-marca-50 px-2.5 py-1 text-xs font-medium text-marca-800 ring-1 ring-marca-100 ring-inset">
-        <MapPin aria-hidden className="size-3.5 text-marca-600" />
+      <p className="inline-flex min-w-0 items-center gap-1.5 self-start rounded-full bg-marca-50 px-2.5 py-1 text-xs font-medium text-marca-800 ring-1 ring-marca-100 ring-inset">
+        <MapPin aria-hidden className="size-3.5 shrink-0 text-marca-600" />
         {sedes[0] ? (
           <>
             <span className="sr-only">Sede: </span>
-            {sedes[0].nombre}
+            <span className="min-w-0 break-words">{sedes[0].nombre}</span>
           </>
         ) : (
           "Sin sede asignada"
@@ -33,7 +33,7 @@ export function SelectorSede({ sedes, actual, todas }: { sedes: Opcion[]; actual
   return (
     <form
       action={elegirSede}
-      className="flex w-full items-center gap-2 sm:w-auto"
+      className="flex w-full min-w-0 items-center gap-2 sm:w-auto"
       onChange={(e) => {
         const formulario = e.currentTarget;
         iniciar(() => formulario.requestSubmit());
@@ -50,7 +50,7 @@ export function SelectorSede({ sedes, actual, todas }: { sedes: Opcion[]; actual
         key={actual}
         disabled={pendiente}
         aria-busy={pendiente}
-        className={`${claseControl} h-9 min-w-0 flex-1 sm:w-56 sm:flex-none`}
+        className={`${claseControl} h-11 min-w-0 flex-1 sm:h-9 sm:w-56 sm:flex-none`}
       >
         <option value={todas}>Todas mis sedes</option>
         {sedes.map((s) => (
@@ -61,7 +61,7 @@ export function SelectorSede({ sedes, actual, todas }: { sedes: Opcion[]; actual
         ))}
       </select>
       <noscript>
-        <button type="submit" className="text-sm underline">
+        <button type="submit" className={claseBoton("secundario","sm")}>
           Cambiar
         </button>
       </noscript>

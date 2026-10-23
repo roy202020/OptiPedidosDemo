@@ -72,6 +72,7 @@ export function ComprobantePaciente({ orden: o, optica, consulta }: Props) {
 
       <Bloque titulo="Su pedido">
         <p>{TIPOS_TRABAJO[o.tipo_trabajo]}</p>
+        <p className="font-bold">{o.ojos.length === 1 ? `Un lente · ${o.ojos[0].ojo === "OD" ? "ojo derecho (OD)" : "ojo izquierdo (OI)"}` : "Dos lentes · ambos ojos"}</p>
         {mismoLente ? (
           <p>Lentes: {lentes[0].texto}</p>
         ) : (
@@ -91,6 +92,7 @@ export function ComprobantePaciente({ orden: o, optica, consulta }: Props) {
           <Linea />
           <Bloque>
             <dl className="grid grid-cols-[1fr_auto] gap-x-2 tabular-nums">
+              {Number(o.precio_montura) > 0 && <><dt>Lunas</dt><dd className="text-right">{soles(Number(o.precio) - Number(o.precio_montura))}</dd><dt>Montura</dt><dd className="text-right">{soles(o.precio_montura)}</dd></>}
               {Number(o.descuento) > 0 && (
                 <>
                   <dt>Precio</dt>

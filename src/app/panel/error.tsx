@@ -15,7 +15,7 @@ export default function ErrorPanel({ error, reset }: { error: Error & { digest?:
       <span className="mb-3 flex size-11 items-center justify-center rounded-full bg-red-50 text-red-600">
         <TriangleAlert aria-hidden className="size-5" />
       </span>
-      <h1 className="text-lg font-semibold text-slate-900">No se pudo cargar esta sección</h1>
+      <h1 className="text-xl font-semibold leading-tight tracking-tight text-slate-900 sm:text-2xl">No se pudo cargar esta sección</h1>
       <p className="mt-1 text-sm text-slate-500">
         Puede ser un problema de conexión. Vuelve a intentarlo; si continúa, avisa al administrador
         {error.digest ? ` indicando el código ${error.digest}` : ""}.

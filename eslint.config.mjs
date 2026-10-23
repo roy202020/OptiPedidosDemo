@@ -15,6 +15,8 @@ const eslintConfig = defineConfig([
   globalIgnores([
     // Default ignores of eslint-config-next:
     ".next/**",
+    // Copias de trabajo externas y sus dependencias generadas.
+    ".claude/**",
     "out/**",
     "build/**",
     "next-env.d.ts",

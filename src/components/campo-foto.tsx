@@ -1,5 +1,6 @@
 "use client";
 
+import { claseBoton } from "./ui";
 import { Camera, FileCheck2, X } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 
@@ -86,7 +87,7 @@ export function CampoFoto({
       <div className="flex flex-wrap items-center gap-3">
         <label
           htmlFor={id}
-          className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 focus-within:ring-2 focus-within:ring-marca-500"
+          className={`${claseBoton("secundario")} focus-within:ring-2 focus-within:ring-marca-500`}
         >
           <Camera aria-hidden className="size-4" />
           {info ? "Cambiar foto" : "Tomar o elegir foto"}
@@ -110,7 +111,7 @@ export function CampoFoto({
               <FileCheck2 aria-hidden className="size-4 text-emerald-600" />
             )}
             {info}
-            <button type="button" onClick={quitar} aria-label="Quitar foto" className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+            <button type="button" onClick={quitar} aria-label="Quitar foto" className="ui-icono-boton text-slate-400 hover:bg-slate-100 hover:text-slate-600">
               <X aria-hidden className="size-3.5" />
             </button>
           </span>

@@ -179,7 +179,7 @@ export function TicketLaboratorio({ orden: o, reservas, optica }: Props) {
 
       <Bloque titulo="Control de calidad">
         <ul className="grid grid-cols-2 gap-x-2 gap-y-1">
-          {["Graduación OD", "Graduación OI", "Centrado / DNP", "Altura", "Tratamientos", "Biselado / montaje"].map((t) => (
+          {[...o.ojos.map(j => `Graduación ${j.ojo}`), "Centrado / DNP", "Altura", "Tratamientos", "Biselado / montaje"].map((t) => (
             <li key={t} className="flex items-center gap-1">
               <span aria-hidden className="inline-block size-[3mm] shrink-0 border border-black" />
               {t}

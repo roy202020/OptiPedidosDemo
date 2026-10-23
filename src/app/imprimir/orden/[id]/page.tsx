@@ -18,7 +18,7 @@ type Props = PageProps<"/imprimir/orden/[id]">;
 
 export default function PaginaImprimirOrden({ params, searchParams }: Props) {
   return (
-    <Suspense fallback={<p className="text-center text-sm text-slate-500">Preparando ticket…</p>}>
+    <Suspense fallback={<p className="text-center text-sm text-slate-500">Preparando ticket de 80 mm…</p>}>
       <Ticket params={params} searchParams={searchParams} />
     </Suspense>
   );
@@ -54,7 +54,8 @@ async function Ticket({ params, searchParams }: Props) {
           {paraPaciente ? "Ver ticket del laboratorio" : "Ver comprobante del paciente"}
         </Link>
         <BotonImprimir auto={sp.auto === "1"} />
-        <p className="w-full text-xs text-slate-500">
+        <p className="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs leading-relaxed text-slate-600">
+          Papel de 80 mm · Escala 100 % · Sin márgenes ni encabezados. Revisa la copia antes de imprimir.<br />
           {paraPaciente ? "Comprobante del paciente: sin graduación ni datos internos." : "Ticket del laboratorio: sin importes."}
         </p>
       </div>

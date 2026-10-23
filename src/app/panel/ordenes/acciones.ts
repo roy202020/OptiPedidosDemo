@@ -22,6 +22,9 @@ import {
   valoresOrden,
 } from "@/lib/validacion/orden";
 
+import { tarifasParaPedidos } from "@/lib/datos/precios-ordenes";
+import { calcularPrecioLunas, sumarPreciosPedido } from "@/lib/ordenes/precio";
+
 const idValido = (id: string) => z.uuid().safeParse(id).success;
 
 /** `sedeId` es la sede mostrada en el formulario; la base valida acceso y que esté activa. */
@@ -30,10 +33,20 @@ export async function crearOrden(pacienteId: string, sedeId: string, _previo: Es
   const valores = valoresOrden(datos);
   if (!idValido(pacienteId) || !idValido(sedeId)) return { error: "Paciente o sede inválidos.", valores };
   const r = esquemaOrden.safeParse(leerFormularioOrden(datos));
-  if (!r.success) return { campos: erroresOrden(r.error), valores };
+  if (!r.success) return { campos: erroresOrden(r.error, datos), valores };
 
   const d = r.data;
   const supabase = await crearClienteServidor();
+  if (datos.get("modo_precio") === "automatico") {
+    const { data: receta, error: errorReceta } = await supabase.from("recetas")
+      .select("od_esfera,od_cilindro,od_eje,od_adicion,oi_esfera,oi_cilindro,oi_eje,oi_adicion")
+      .eq("id", d.receta_id).eq("paciente_id", pacienteId).maybeSingle();
+    if (errorReceta || !receta) return { error:"No se pudo comprobar la receta para calcular el precio.", valores };
+    const calculo = calcularPrecioLunas(d, receta, await tarifasParaPedidos());
+    if (calculo.error) return { error:calculo.error, valores };
+    if (sumarPreciosPedido(calculo.total!, d.precio_montura) !== d.precio) return { error:"La tarifa cambió. Revisa el precio actualizado antes de guardar.", valores };
+    d.precio = sumarPreciosPedido(calculo.total!, d.precio_montura);
+  }
   const { data: id, error } = await supabase.rpc("crear_orden", {
     p_paciente: pacienteId,
     p_receta: d.receta_id,
@@ -51,6 +64,7 @@ export async function crearOrden(pacienteId: string, sedeId: string, _previo: Es
   });
   if (error) return { error: mensajeDb(error), valores };
 
+  revalidatePath("/panel/monturas");
   revalidatePath("/panel/ordenes");
   redirect(`/panel/ordenes/${id}`);
 }
@@ -60,10 +74,25 @@ export async function actualizarOrden(id: string, _previo: EstadoFormulario, dat
   const valores = valoresOrden(datos);
   if (!idValido(id)) return { error: "Orden inválida.", valores };
   const r = esquemaOrden.safeParse(leerFormularioOrden(datos));
-  if (!r.success) return { campos: erroresOrden(r.error), valores };
+  if (!r.success) return { campos: erroresOrden(r.error, datos), valores };
 
   const d = r.data;
   const supabase = await crearClienteServidor();
+  if (datos.get("modo_precio") === "automatico") {
+    const { data: orden } = await supabase.from("ordenes").select("receta_id,orden_ojos(ojo,esfera,cilindro,eje,adicion)").eq("id", id).maybeSingle();
+    if (!orden || orden.receta_id !== d.receta_id) return {error:"No se pudo comprobar la receta del pedido.", valores};
+    const ojos = orden.orden_ojos as {ojo:string;esfera:number|null;cilindro:number|null;eje:number|null;adicion:number|null}[];
+    const seleccion = ojos.length === 2 ? "ambos" : ojos[0]?.ojo.toLowerCase();
+    if (seleccion !== d.ojos_pedido) return {error:"Los ojos del pedido no se pueden cambiar en edición.", valores};
+    const rx = Object.fromEntries((["od", "oi"] as const).flatMap(lado => {
+      const ojo = ojos.find(j => j.ojo.toLowerCase() === lado);
+      return (["esfera", "cilindro", "eje", "adicion"] as const).map(c => [`${lado}_${c}`, ojo?.[c] ?? null]);
+    })) as import("@/lib/ordenes/precio").RecetaPrecio;
+    const calculo = calcularPrecioLunas(d, rx, await tarifasParaPedidos());
+    if (calculo.error) return {error:calculo.error, valores};
+    if (sumarPreciosPedido(calculo.total!, d.precio_montura) !== d.precio) return {error:"La tarifa cambió. Revisa el precio actualizado antes de guardar.", valores};
+    d.precio = sumarPreciosPedido(calculo.total!, d.precio_montura);
+  }
   const { error } = await supabase.rpc("actualizar_orden_borrador", {
     p_orden: id,
     p_laboratorio: d.laboratorio_id,
@@ -78,6 +107,7 @@ export async function actualizarOrden(id: string, _previo: EstadoFormulario, dat
   });
   if (error) return { error: mensajeDb(error), valores };
 
+  revalidatePath("/panel/monturas");
   revalidatePath("/panel/ordenes", "layout");
   redirect(`/panel/ordenes/${id}`);
 }

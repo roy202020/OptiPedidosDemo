@@ -26,7 +26,7 @@
   --color-marca-900: #10203f;
   --color-marca-950: #0a1428;
 
-  --color-fondo: #f4f6f9;
+  --color-fondo: #f5f7fb;
 
   --shadow-tarjeta: 0 1px 2px rgb(16 32 63 / 0.04), 0 1px 3px rgb(16 32 63 / 0.06);
   --shadow-elevada: 0 6px 16px -6px rgb(16 32 63 / 0.14), 0 2px 4px -2px rgb(16 32 63 / 0.06);
@@ -83,4 +83,43 @@
       transition-duration: 1ms !important;
     }
   }
+}
+
+@media (max-width: 639px) {
+  .receta-medidas table { min-width: 0; display: block; }
+  .receta-medidas thead { display: none; }
+  .receta-medidas tbody { display: grid; gap: 1rem; }
+  .receta-medidas tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; padding: 1rem; border: 1px solid #e2e8f0; border-radius: 1rem; background: #f8fafc; }
+  .receta-medidas th { grid-column: 1 / -1; }
+  .receta-medidas td { display: block; padding: 0; min-width: 0; }
+  .receta-medidas td::before { content: attr(data-etiqueta); display: block; margin-bottom: .375rem; font-size: .75rem; color: #475569; }
+  .receta-medidas input, .receta-medidas select { min-height: 44px; }
+}
+
+/* Controles cómodos al tacto y tablas con desplazamiento contenido. */
+@layer base {
+  html { scroll-padding-top: 7rem; }
+  input, select, textarea { min-width: 0; }
+  summary { cursor: pointer; }
+  summary:focus-visible { border-radius: .5rem; }
+}
+.acciones-formulario { position: sticky; bottom: calc(4rem + env(safe-area-inset-bottom)); z-index: 10; background: rgb(255 255 255 / .97); padding: 1rem; border: 1px solid #e2e8f0; border-radius: 1rem; box-shadow: 0 -4px 20px rgb(16 32 63 / .04); }
+@media (max-width: 639px) {
+  input:not([type=checkbox]):not([type=radio]):not([type=hidden]), select, textarea { font-size: 16px; }
+  input[type=checkbox], input[type=radio] { min-width: 20px; min-height: 20px; }
+}
+
+@media (min-width: 1024px) { .acciones-formulario { bottom: 1rem; } }
+
+/* Reglas compartidas de tipografía e iconos para todas las superficies. */
+@layer base {
+  button, input, select, textarea { font-family: inherit; letter-spacing: normal; }
+  .lucide { stroke-width: 1.75; flex-shrink: 0; }
+}
+.ui-boton > .lucide { width: 1.125rem; height: 1.125rem; }
+.ui-icono-boton { display: inline-flex; min-width: 2.75rem; min-height: 2.75rem; align-items: center; justify-content: center; border-radius: .5rem; }
+.ui-icono-boton > .lucide { width: 1.125rem; height: 1.125rem; }
+@media screen and (max-width: 639px) {
+  button { min-height: 2.75rem; }
+  input:not([type=checkbox]):not([type=radio]):not([type=hidden]):not([type=file]), select, textarea { min-height: 2.75rem; }
 }

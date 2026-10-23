@@ -7,6 +7,9 @@ import { obtenerOrden } from "@/lib/datos/ordenes";
 import { fecha } from "@/lib/formato";
 import { numeroOrden } from "@/lib/ordenes/estados";
 import { hoyISO } from "@/lib/validacion/comun";
+import { listarMonturas } from "@/lib/datos/monturas";
+import { tarifasParaPedidos } from "@/lib/datos/precios-ordenes";
+import type { RecetaPrecio } from "@/lib/ordenes/precio";
 import { actualizarOrden } from "../../acciones";
 import { FormularioOrden } from "../../formulario-orden";
 
@@ -24,7 +27,8 @@ export default function PaginaEditarOrden({ params }: Props) {
 
 async function Edicion({ params }: Pick<Props, "params">) {
   const { id } = await params;
-  const [{ orden: o }, labs] = await Promise.all([obtenerOrden(id), listarLaboratorios({ soloActivos: true })]);
+  const [{ orden: o }, labs, tarifas] = await Promise.all([obtenerOrden(id), listarLaboratorios({ soloActivos: true }), tarifasParaPedidos()]);
+  const monturas = await listarMonturas(false,o.sede_id);
   const volver = { href: `/panel/ordenes/${id}`, texto: `Orden ${numeroOrden(o.numero)}` };
 
   if (o.estado !== "borrador") {
@@ -49,8 +53,10 @@ async function Edicion({ params }: Pick<Props, "params">) {
     prioridad: o.prioridad,
     fecha_entrega_prometida: o.fecha_entrega_prometida ?? "",
     montura_origen: o.montura_origen ?? "",
+    montura_catalogo_id: o.montura_catalogo_id ?? "",
     montura_descripcion: o.montura_descripcion ?? "",
     precio: Number(o.precio).toFixed(2),
+    precio_montura: Number(o.precio_montura ?? 0).toFixed(2),
     descuento: Number(o.descuento).toFixed(2),
   };
   for (const j of o.ojos) {
@@ -69,6 +75,10 @@ async function Edicion({ params }: Pick<Props, "params">) {
     opcionesLab.unshift({ valor: o.laboratorio_id, texto: `${o.laboratorio.nombre} (inactivo)` });
   }
 
+  const rx = Object.fromEntries((["od", "oi"] as const).flatMap(lado => {
+    const ojo = o.ojos.find(j => j.ojo.toLowerCase() === lado);
+    return (["esfera", "cilindro", "eje", "adicion"] as const).map(c => [`${lado}_${c}`, ojo?.[c] ?? null]);
+  })) as RecetaPrecio;
   return (
     <>
       <Encabezado
@@ -79,9 +89,11 @@ async function Edicion({ params }: Pick<Props, "params">) {
       <Tarjeta>
         <FormularioOrden
           accion={actualizarOrden.bind(null, id)}
-          recetas={[{ valor: o.receta_id, texto: `Examen del ${fecha(o.receta.fecha_examen)}` }]}
+          recetas={[{ valor: o.receta_id, texto: `Examen del ${fecha(o.receta.fecha_examen)}`, rx }]}
           laboratorios={opcionesLab}
           ojos={o.ojos.map((j) => j.ojo.toLowerCase() as "od" | "oi")}
+          monturas={monturas.filter(m => m.activo || m.id === o.montura_catalogo_id).map(m => m.id === o.montura_catalogo_id ? {...m,precio:Number(o.precio_montura),nombre:o.montura_descripcion ?? m.nombre} : m)}
+          tarifas={tarifas}
           inicial={inicial}
           hoy={hoyISO()}
           cancelar={volver.href}

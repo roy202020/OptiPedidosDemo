@@ -61,7 +61,7 @@ export function Campo({ nombre, etiqueta, tipo = "text", errores, ayuda, classNa
         type={tipo}
         aria-invalid={conError || undefined}
         aria-describedby={conError || ayuda ? idAyuda : undefined}
-        className={cx(claseControl, "h-10")}
+        className={cx(claseControl, "h-11")}
         {...resto}
       />
       <Ayuda id={idAyuda} errores={errores} ayuda={ayuda} />
@@ -72,7 +72,7 @@ export function Campo({ nombre, etiqueta, tipo = "text", errores, ayuda, classNa
 type SelectorProps = {
   nombre: string;
   etiqueta: string;
-  opciones: readonly (string | { valor: string; texto: string })[];
+  opciones: readonly (string | { valor: string; texto: string; disabled?: boolean })[];
   errores?: string[];
   ayuda?: string;
 } & Omit<React.SelectHTMLAttributes<HTMLSelectElement>, "name">;
@@ -90,13 +90,13 @@ export function Selector({ nombre, etiqueta, opciones, errores, ayuda, className
         name={nombre}
         aria-invalid={conError || undefined}
         aria-describedby={conError || ayuda ? idAyuda : undefined}
-        className={cx(claseControl, "h-10")}
+        className={cx(claseControl, "h-11")}
         {...resto}
       >
         {opciones.map((o) => {
           const { valor, texto } = typeof o === "string" ? { valor: o, texto: o } : o;
           return (
-            <option key={valor} value={valor}>
+            <option key={valor} value={valor} disabled={typeof o === "string" ? false : o.disabled}>
               {texto}
             </option>
           );
@@ -139,7 +139,7 @@ export function AreaTexto({ nombre, etiqueta, errores, ayuda, className, ...rest
 /** Grupo de campos con título, para formularios largos. */
 export function Seccion({ titulo, descripcion, children }: { titulo: string; descripcion?: string; children: React.ReactNode }) {
   return (
-    <fieldset className="grid gap-x-8 gap-y-4 border-t border-slate-100 pt-6 first-of-type:border-t-0 first-of-type:pt-0 lg:grid-cols-[220px_1fr]">
+    <fieldset className="grid gap-x-8 gap-y-4 border-t border-slate-100 pt-6 first-of-type:border-t-0 first-of-type:pt-0 lg:grid-cols-[180px_minmax(0,1fr)]">
       <legend className="sr-only">{titulo}</legend>
       <div aria-hidden>
         <p className="text-sm font-semibold text-slate-900">{titulo}</p>
@@ -177,12 +177,14 @@ export const useSoloLectura = () => useContext(SoloLectura).activo;
 export function BotonEnviar({
   children,
   pendiente,
+  disabled,
   variante = "primario",
   icono: Icono,
   className,
 }: {
   children: React.ReactNode;
   pendiente: string;
+  disabled?: boolean;
   variante?: VarianteBoton;
   icono?: LucideIcon;
   className?: string;
@@ -192,7 +194,7 @@ export function BotonEnviar({
   return (
     <button
       type="submit"
-      disabled={pending || soloLectura}
+      disabled={pending || soloLectura || disabled}
       aria-busy={pending}
       title={soloLectura ? TEXTO_SOLO_LECTURA : undefined}
       className={cx(claseBoton(variante), className)}
@@ -288,7 +290,7 @@ export function Confirmacion({
               type="button"
               aria-label="Cerrar"
               onClick={() => dialogo.current?.close()}
-              className="-m-1 rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+              className="ui-icono-boton -m-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
             >
               <X aria-hidden className="size-4" />
             </button>
